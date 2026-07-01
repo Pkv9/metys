@@ -1,6 +1,22 @@
 (function () {
   "use strict";
 
+  /* ── LOCALE CAPTURE: must run FIRST, synchronously, before anything else.
+     Some pages (openidsso) are rendered by a JS framework that rewrites the
+     URL via history.replaceState almost immediately after mounting, which
+     strips ?request_locale= from the address bar. If we wait for run()
+     (triggered on DOMContentLoaded/setTimeout) to call getLocale(), that
+     rewrite may already have happened and the param is gone for good.
+     Reading it here, as the very first thing this script does, wins that
+     race regardless of what the page's own framework does afterward. */
+  (function captureLocaleImmediately() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var urlLang = params.get("request_locale");
+      if (urlLang) localStorage.setItem("mo_locale", urlLang);
+    } catch (e) { /* URLSearchParams/localStorage unavailable — ignore */ }
+  })();
+
   /* ── CONFIG: hardcoded external URLs (edit here in one place) ── */
   var MO_URLS = {
     /* Logout page -> external account logout */
