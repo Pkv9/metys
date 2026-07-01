@@ -436,15 +436,34 @@ function hasExplicitLocaleParam() {
   }
 
 function getLocale() {
-    const urlLang = getUrlParam("request_locale");
+    var urlLang = getUrlParam("request_locale");
+
+    // URL always wins
     if (urlLang) {
-        localStorage.setItem("mo_locale", urlLang.toLowerCase());
-        return urlLang.toLowerCase();
+        urlLang = urlLang.toLowerCase();
+        localStorage.setItem("mo_locale", urlLang);
+        return urlLang;
     }
 
-    const stored = localStorage.getItem("mo_locale");
+    // Then use the persisted session locale
+    var stored = localStorage.getItem("mo_locale");
     if (stored && TRANSLATIONS[stored]) {
         return stored;
+    }
+
+    // Try language selector if present
+    var lang = null;
+    var sel = document.getElementById("languageSelect");
+    if (sel && sel.value) {
+        lang = sel.value.toLowerCase();
+    }
+
+    // Try <html lang="">
+    if (!lang) {
+        var htmlLang = document.documentElement.getAttribute("lang");
+        if (htmlLang) {
+            lang = htmlLang.trim().toLowerCase().split("-")[0];
+        }
     }
 
     if (lang && TRANSLATIONS[lang]) {
