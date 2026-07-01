@@ -9,13 +9,16 @@
      rewrite may already have happened and the param is gone for good.
      Reading it here, as the very first thing this script does, wins that
      race regardless of what the page's own framework does afterward. */
-  (function captureLocaleImmediately() {
+(function captureLocaleImmediately() {
     try {
-      var params = new URLSearchParams(window.location.search);
-      var urlLang = params.get("request_locale");
-      if (urlLang) localStorage.setItem("mo_locale", urlLang);
-    } catch (e) { /* URLSearchParams/localStorage unavailable — ignore */ }
-  })();
+        var params = new URLSearchParams(window.location.search);
+        var urlLang = params.get("request_locale");
+
+        if (urlLang) {
+            localStorage.setItem("mo_locale", urlLang.toLowerCase());
+        }
+    } catch (e) {}
+})();
 
   /* ── CONFIG: hardcoded external URLs (edit here in one place) ── */
   var MO_URLS = {
@@ -383,9 +386,12 @@
      pages too, silently reintroducing the original bug (this script
      clobbering already-correct server-rendered text with tr()'s English
      fallback) whenever the signal doesn't happen to be visible to JS. */
-  function hasExplicitLocaleParam() {
-    return !!getUrlParam("request_locale");
-  }
+function hasExplicitLocaleParam() {
+    return !!(
+        getUrlParam("request_locale") ||
+        localStorage.getItem("mo_locale")
+    );
+}
 
   /* Return the trimmed text of an element, or "" if it doesn't exist.
      Used as the "trust the server" fallback below. */
@@ -429,32 +435,25 @@
     return params.get(name);
   }
 
-  function getLocale() {
-    var urlLang = getUrlParam("request_locale");
-    var lang = urlLang;
-    if (!lang) {
-      var sel = document.getElementById("languageSelect");
-      if (sel) lang = sel.value;
-    }
-    if (!lang) {
-      /* Fall back to the document language, e.g. <html lang="it">. */
-      var htmlLang = document.documentElement.getAttribute("lang");
-      if (htmlLang) lang = htmlLang.trim().toLowerCase().split("-")[0];
-    }
-    /* A request_locale param present on THIS page's URL is authoritative
-       and always (re)persisted. This matters because some flows redirect
-       from one page to another and drop the query param along the way
-       (e.g. /moas/idp/openidsso?request_locale=nl -> /moas/idp/userlogin,
-       which has no request_locale at all) — without persisting it here on
-       the first page, the later page has no way to recover the locale and
-       tr() would silently fall back to English. */
+function getLocale() {
+    const urlLang = getUrlParam("request_locale");
     if (urlLang) {
-      localStorage.setItem("mo_locale", urlLang);
-    } else if (lang && !localStorage.getItem("mo_locale")) {
-      localStorage.setItem("mo_locale", lang);
+        localStorage.setItem("mo_locale", urlLang.toLowerCase());
+        return urlLang.toLowerCase();
     }
-    return localStorage.getItem("mo_locale") || lang || "en";
-  }
+
+    const stored = localStorage.getItem("mo_locale");
+    if (stored && TRANSLATIONS[stored]) {
+        return stored;
+    }
+
+    if (lang && TRANSLATIONS[lang]) {
+        localStorage.setItem("mo_locale", lang);
+        return lang;
+    }
+
+    return "en";
+}
 
   /* ── TRANSLATIONS ──
      Keyed by locale code (matches #languageSelect option values + mo_locale).
