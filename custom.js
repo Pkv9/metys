@@ -442,12 +442,10 @@ function getLocale() {
     if (urlLang) {
         urlLang = urlLang.toLowerCase();
         localStorage.setItem("mo_locale", urlLang);
-        console.log("Using URL locale:", urlLang);
         return urlLang;
     }
 
     var stored = localStorage.getItem("mo_locale");
-    console.log("stored locale:", stored, "valid:", !!(stored && TRANSLATIONS[stored]));
     if (stored && TRANSLATIONS[stored]) {
         return stored;
     }
@@ -456,24 +454,19 @@ function getLocale() {
     var sel = document.getElementById("languageSelect");
     if (sel && sel.value) {
         lang = sel.value.toLowerCase();
-        console.log("lang from selector:", lang);
     }
 
     if (!lang) {
         var htmlLang = document.documentElement.getAttribute("lang");
         if (htmlLang) {
             lang = htmlLang.trim().toLowerCase().split("-")[0];
-            console.log("lang from <html lang>:", lang);
         }
     }
 
     if (lang && TRANSLATIONS[lang]) {
         localStorage.setItem("mo_locale", lang);
-        console.log("Final resolved lang:", lang);
         return lang;
     }
-
-    console.log("Falling back to 'en'");
     return "en";
 }
 
