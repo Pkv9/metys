@@ -437,40 +437,43 @@ function hasExplicitLocaleParam() {
 
 function getLocale() {
     var urlLang = getUrlParam("request_locale");
+    console.log("urlLang:", urlLang);
 
-    // URL always wins
     if (urlLang) {
         urlLang = urlLang.toLowerCase();
         localStorage.setItem("mo_locale", urlLang);
+        console.log("Using URL locale:", urlLang);
         return urlLang;
     }
 
-    // Then use the persisted session locale
     var stored = localStorage.getItem("mo_locale");
+    console.log("stored locale:", stored, "valid:", !!(stored && TRANSLATIONS[stored]));
     if (stored && TRANSLATIONS[stored]) {
         return stored;
     }
 
-    // Try language selector if present
     var lang = null;
     var sel = document.getElementById("languageSelect");
     if (sel && sel.value) {
         lang = sel.value.toLowerCase();
+        console.log("lang from selector:", lang);
     }
 
-    // Try <html lang="">
     if (!lang) {
         var htmlLang = document.documentElement.getAttribute("lang");
         if (htmlLang) {
             lang = htmlLang.trim().toLowerCase().split("-")[0];
+            console.log("lang from <html lang>:", lang);
         }
     }
 
     if (lang && TRANSLATIONS[lang]) {
         localStorage.setItem("mo_locale", lang);
+        console.log("Final resolved lang:", lang);
         return lang;
     }
 
+    console.log("Falling back to 'en'");
     return "en";
 }
 
