@@ -361,26 +361,32 @@
         return params.get(name);
     }
 
-    function getLocale() {
-        var lang = getUrlParam("request_locale");
-        if (!lang) {
-            var sel = document.getElementById("languageSelect");
-            if (sel) lang = sel.value;
-        }
-        if (!lang) {
-            var htmlLang = document.documentElement.getAttribute("lang");
-            if (htmlLang) lang = htmlLang.trim().toLowerCase().split("-")[0];
-        }
-        // Only write when we actually found something, and prefer an
-        // already-stored value over a weaker fallback.
-        if (lang && getUrlParam("request_locale")) {
-            // URL param is authoritative → always store it
-            localStorage.setItem("mo_locale", lang);
-        } else if (lang && !localStorage.getItem("mo_locale")) {
-            localStorage.setItem("mo_locale", lang);
-        }
-        return localStorage.getItem("mo_locale") || lang || "en";
-    }
+function getLocale() {
+  var lang = getUrlParam("request_locale");
+
+  if (!lang) {
+    var sel = document.getElementById("languageSelect");
+    if (sel && sel.value) lang = sel.value;
+  }
+  if (!lang) {
+    var htmlLang = document.documentElement.getAttribute("lang");
+    if (htmlLang) lang = htmlLang.trim().toLowerCase().split("-")[0];
+  }
+  if (!lang) {
+    var m = document.cookie.match(/(?:^|;\s*)(?:mo_locale|locale|request_locale|MO_LOCALE)=([^;]+)/);
+    if (m) lang = decodeURIComponent(m[1]).trim().toLowerCase().split("-")[0];
+  }
+  if (!lang) {
+    var stored = localStorage.getItem("mo_locale");
+    if (stored) lang = stored;
+  }
+
+  // Only keep locales you actually have translations for
+  if (lang && !TRANSLATIONS[lang]) lang = null;
+
+  if (lang) localStorage.setItem("mo_locale", lang);
+  return localStorage.getItem("mo_locale") || lang || "en";
+}
 
     /* â”€â”€ TRANSLATIONS â”€â”€
        Keyed by locale code (matches #languageSelect option values + mo_locale).
