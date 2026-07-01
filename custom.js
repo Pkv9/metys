@@ -150,11 +150,15 @@
       if (this.style.height !== "100vh") this.style.height = "100vh";
     });
 
-    /* Replace heading text with RESET PASSWORD (localized).
-       Guarded so we only write when it differs — avoids the observer loop. */
-    var psmTitle = document.querySelector("#login-wrapper h4");
-    if (psmTitle && psmTitle.textContent !== tr("reset.password")) {
-      psmTitle.textContent = tr("reset.password");
+    /* Replace heading text with RESET PASSWORD only when this page's URL
+       explicitly asked for a locale; otherwise trust the server's own
+       (possibly session-localized) heading. Guarded so we only write when
+       it differs — avoids the observer loop. */
+    if (hasExplicitLocaleParam()) {
+      var psmTitle = document.querySelector("#login-wrapper h4");
+      if (psmTitle && psmTitle.textContent !== tr("reset.password")) {
+        psmTitle.textContent = tr("reset.password");
+      }
     }
 
     /* Point "Go back to Login Page" at the broker login (dashboard) URL */
@@ -368,12 +372,51 @@
     return a ? a.href : "#";
   }
 
+  /* True only when THIS page's own URL explicitly asks for a locale via
+     ?request_locale=... . This is the one signal we can trust to mean
+     "the visitor/flow is asking for a specific language right now" — as
+     opposed to a session-driven page (e.g. openidsso -> userlogin) where
+     the server may already be rendering the correct locale via server-side
+     session state that never reaches the URL, a cookie, or localStorage at
+     all. We deliberately do NOT fall back to a persisted/stored locale here:
+     doing so would make us overwrite server text on those session-driven
+     pages too, silently reintroducing the original bug (this script
+     clobbering already-correct server-rendered text with tr()'s English
+     fallback) whenever the signal doesn't happen to be visible to JS. */
+  function hasExplicitLocaleParam() {
+    return !!getUrlParam("request_locale");
+  }
+
+  /* Return the trimmed text of an element, or "" if it doesn't exist.
+     Used as the "trust the server" fallback below. */
+  function serverText(el) {
+    return el ? (el.textContent || "").trim() : "";
+  }
+
+  /* .login-header carries the page's real heading server-side (hidden and
+     replaced by our own styled element for layout). Used as the
+     "trust the server" fallback for titles below. */
+  function getServerHeaderText() {
+    return serverText(document.querySelector(".login-header"));
+  }
+
+  /* The original "Forgot password" link's own text, used as the
+     "trust the server" fallback when we replace it with #mo-forgot. */
+  function getForgotLinkText() {
+    var a = document.querySelector("a[href*='forgotpassword'], a[href*='resetpassword']");
+    return a ? a.textContent.trim() : "";
+  }
+
   /* Set a submit button's label. The trailing white right-arrow is supplied
      by CSS (background-image: MO_ARROW_BG) on the button selectors, so the
      look is identical whether the button is an <input> or a <button>.
+     Only overwrites the button's own text when this page's URL explicitly
+     requested a locale — otherwise the text is left as the server rendered
+     it (see hasExplicitLocaleParam above) and we only apply the CSS marker.
      Idempotent — safe to call on every observer pass. */
   function setBtnArrowLabel(btn, label) {
     if (!btn) return;
+    if (!hasExplicitLocaleParam()) { btn.dataset.mo = "1"; return; }
     if (btn.tagName === "INPUT") {
       if (btn.value !== label) { btn.value = label; btn.dataset.mo = "1"; }
     } else {
@@ -773,23 +816,30 @@
     /* LOG IN title — insert once before any form child */
     if (!document.getElementById("mo-title")) {
       var t = document.createElement("span");
-      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = tr("login.page.title");
+      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = hasExplicitLocaleParam() ? tr("login.page.title") : getServerHeaderText();
       wrapper.insertBefore(t, wrapper.firstChild);
     }
 
-    /* Email label above the username input */
+    /* Email label above the username input. Overwritten with tr() only when
+       this page's URL explicitly asked for a locale; otherwise we reuse the
+       field's own server-rendered placeholder text and leave the
+       placeholder attribute alone (see hasExplicitLocaleParam above). */
     var userDiv = document.getElementById("userName");
     if (userDiv && !document.getElementById("mo-email-lbl")) {
+      var inp = document.getElementById("username");
+      var emailLblText = hasExplicitLocaleParam()
+        ? tr("email.field.label")
+        : (inp ? (inp.getAttribute("placeholder") || "") : "");
+      document.body.dataset.moEmailLblText = emailLblText;
       var fg = document.createElement("div"); fg.className = "mo-fg";
       var lbl = document.createElement("label");
       lbl.id = "mo-email-lbl"; lbl.className = "mo-lbl";
       lbl.setAttribute("for", "username");
-      lbl.innerHTML = tr("email.field.label") + ' <span class="mo-req">*</span>';
+      lbl.innerHTML = emailLblText + ' <span class="mo-req">*</span>';
       fg.appendChild(lbl);
       userDiv.parentNode.insertBefore(fg, userDiv);
       fg.appendChild(userDiv);
-      var inp = document.getElementById("username");
-      if (inp) inp.setAttribute("placeholder", tr("email.field.placeholder"));
+      if (inp && hasExplicitLocaleParam()) inp.setAttribute("placeholder", tr("email.field.placeholder"));
     }
 
  
@@ -805,10 +855,10 @@
     var unameEl = document.getElementById("username");
     if (isPageHasError && !document.getElementById("mo-userlogin-error") && !(unameEl && unameEl.dataset.moUserErrDismissed)) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message instead of the raw backend banner
-         text (the backend's own copy is generic/untranslated on this
-         environment regardless of locale). */
-      var message = tr("login.error.default");
+      /* Show our own translated message only when this page's URL explicitly
+         asked for a locale; otherwise trust the backend's own (possibly
+         session-localized) error text. */
+      var message = hasExplicitLocaleParam() ? tr("login.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
       $('#userName').after(
         '<div id="mo-userlogin-error" class="error-message text-start" style="color:red;">' + message + '</div>'
       );
@@ -867,7 +917,7 @@
     var wrapper = document.getElementById("login-wrapper");
     if (wrapper && !document.getElementById("mo-title")) {
       var t = document.createElement("span");
-      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = tr("login.page.title");
+      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = hasExplicitLocaleParam() ? tr("login.page.title") : getServerHeaderText();
       wrapper.insertBefore(t, wrapper.firstChild);
     }
 
@@ -877,11 +927,15 @@
 
     if (document.getElementById("mo-pw-lbl")) return; // already applied
 
-    /* Password label above #plaintextPassword */
+    /* Password label above #plaintextPassword. Overwritten with tr() only
+       when this page's URL explicitly asked for a locale; otherwise reuse
+       the field's own server-rendered placeholder text. */
+    var pwPlaceholder = pwField.getAttribute("placeholder") || "";
     var pwLbl = document.createElement("label");
     pwLbl.id = "mo-pw-lbl"; pwLbl.className = "mo-lbl";
     pwLbl.setAttribute("for", "plaintextPassword");
-    pwLbl.innerHTML = tr("password.field.label") + ' <span class="mo-req">*</span>';
+    var pwLblText = hasExplicitLocaleParam() ? tr("password.field.label") : pwPlaceholder;
+    pwLbl.innerHTML = pwLblText + ' <span class="mo-req">*</span>';
     pwField.parentNode.insertBefore(pwLbl, pwField);
 
     /* Show read-only username above password field */
@@ -893,7 +947,9 @@
       if (usernameVal) {
         var userFg = document.createElement("div"); userFg.className = "mo-fg";
         var userLbl = document.createElement("label"); userLbl.className = "mo-lbl";
-        userLbl.textContent = tr("email.field.label");
+        userLbl.textContent = hasExplicitLocaleParam()
+          ? tr("email.field.label")
+          : (document.body.dataset.moEmailLblText || (unInp ? (unInp.getAttribute("placeholder") || "") : ""));
         var userBox = document.createElement("div"); userBox.id = "mo-user-display";
         userBox.className = "mo-user-display";
         userBox.textContent = usernameVal;
@@ -907,10 +963,10 @@
     var isPageHasError = errorOnPage();
     if(isPageHasError && !document.getElementById("mo-pw-error")) {
       console.log('IN ERROR SECTION ')
-      /* Show our own translated message instead of the raw backend banner
-         text (the backend's own copy is generic/untranslated on this
-         environment regardless of locale). */
-      var message = tr("login.error.default");
+      /* Show our own translated message only when this page's URL explicitly
+         asked for a locale; otherwise trust the backend's own (possibly
+         session-localized) error text. */
+      var message = hasExplicitLocaleParam() ? tr("login.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
       $('#mo-user-display').after(
         '<div id="mo-pw-error" class="error-message text-start" style="color:red;">' + message + '</div>'
       );
@@ -934,7 +990,7 @@
     var wrap = document.createElement("div"); wrap.className = "mo-pw-wrap";
     pwField.parentNode.insertBefore(wrap, pwField);
     wrap.appendChild(pwField);
-    pwField.setAttribute("placeholder", tr("password.field.placeholder"));
+    if (hasExplicitLocaleParam()) pwField.setAttribute("placeholder", tr("password.field.placeholder"));
 
     /* Eye toggle button */
     var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -979,7 +1035,7 @@
     if (!document.getElementById("mo-bottom")) {
       var row = document.createElement("div"); row.id = "mo-bottom";
       var fl = document.createElement("a"); fl.id = "mo-forgot";
-      fl.href = "/moas/idp/resetpassword"; fl.textContent = tr("forgot.password.link");
+      fl.href = "/moas/idp/resetpassword"; fl.textContent = hasExplicitLocaleParam() ? tr("forgot.password.link") : getForgotLinkText();
       row.appendChild(fl);
       wrap.parentNode.insertBefore(row, wrap.nextSibling);
     }
@@ -1116,7 +1172,7 @@
     /* LOG IN title — insert once before any form child */
     if (!document.getElementById("mo-title")) {
       var t = document.createElement("span");
-      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = tr("login.page.title");
+      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = hasExplicitLocaleParam() ? tr("login.page.title") : getServerHeaderText();
       wrapper.insertBefore(t, wrapper.firstChild);
     }
 
@@ -1127,11 +1183,15 @@
     /* Email label + placeholder */
     var userDiv = document.getElementById("userName");
     if (userDiv && !document.getElementById("mo-email-lbl")) {
+      var emailInpForLbl = document.getElementById("username");
+      var emailLblText2 = hasExplicitLocaleParam()
+        ? tr("email.field.label")
+        : (emailInpForLbl ? (emailInpForLbl.getAttribute("placeholder") || "") : "");
       var fg = document.createElement("div"); fg.className = "mo-fg";
       var lbl = document.createElement("label");
       lbl.id = "mo-email-lbl"; lbl.className = "mo-lbl";
       lbl.setAttribute("for", "username");
-      lbl.innerHTML = tr("email.field.label") + ' <span class="mo-req">*</span>';
+      lbl.innerHTML = emailLblText2 + ' <span class="mo-req">*</span>';
       fg.appendChild(lbl);
       userDiv.parentNode.insertBefore(fg, userDiv);
       fg.appendChild(userDiv);
@@ -1140,18 +1200,20 @@
     var userNameDiv = document.getElementById("userName");
     if (userNameDiv) userNameDiv.removeAttribute("id");
     var emailInp = document.getElementById("username");
-    if (emailInp) emailInp.setAttribute("placeholder", tr("email.field.placeholder"));
+    if (emailInp && hasExplicitLocaleParam()) emailInp.setAttribute("placeholder", tr("email.field.placeholder"));
 
     /* Password label + eye toggle + placeholder */
     var pwField = document.getElementById("plaintextPassword");
     if (pwField) {
-      pwField.setAttribute("placeholder", tr("password.field.placeholder"));
+      var pwPlaceholder2 = pwField.getAttribute("placeholder") || "";
+      if (hasExplicitLocaleParam()) pwField.setAttribute("placeholder", tr("password.field.placeholder"));
 
       if (!document.getElementById("mo-pw-lbl")) {
         var pwLbl = document.createElement("label");
         pwLbl.id = "mo-pw-lbl"; pwLbl.className = "mo-lbl";
         pwLbl.setAttribute("for", "plaintextPassword");
-        pwLbl.innerHTML = tr("password.field.label") + ' <span class="mo-req">*</span>';
+        var pwLblText2 = hasExplicitLocaleParam() ? tr("password.field.label") : pwPlaceholder2;
+        pwLbl.innerHTML = pwLblText2 + ' <span class="mo-req">*</span>';
         pwField.parentNode.insertBefore(pwLbl, pwField);
       }
 
@@ -1178,7 +1240,7 @@
         if (!document.getElementById("mo-bottom")) {
           var row = document.createElement("div"); row.id = "mo-bottom";
           var fl = document.createElement("a"); fl.id = "mo-forgot";
-          fl.href = "/moas/idp/resetpassword"; fl.textContent = tr("forgot.password.link");
+          fl.href = "/moas/idp/resetpassword"; fl.textContent = hasExplicitLocaleParam() ? tr("forgot.password.link") : getForgotLinkText();
           row.appendChild(fl);
           wrap.parentNode.insertBefore(row, wrap.nextSibling);
         }
@@ -1213,10 +1275,10 @@
     var isPageHasError = errorOnPage();
     if (isPageHasError && !document.getElementById("mo-redirect-error")) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message instead of the raw backend banner
-         text (the backend's own copy is generic/untranslated on this
-         environment regardless of locale). */
-      var message = tr("login.error.default");
+      /* Show our own translated message only when this page's URL explicitly
+         asked for a locale; otherwise trust the backend's own (possibly
+         session-localized) error text. */
+      var message = hasExplicitLocaleParam() ? tr("login.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
       var errHtml = '<div id="mo-redirect-error" class="error-message text-start" style="color:red;">' + message + '</div>';
       if ($('.mo-pw-wrap').length) {
         $('.mo-pw-wrap').after(errHtml);
@@ -1467,15 +1529,23 @@
     var fpForm = emailInput.closest("form");
     if (!fpForm) return;
 
-    /* Insert RESET PASSWORD title + subtitle before the form */
+    /* Insert title + subtitle before the form. Overwritten with tr() only
+       when this page's URL explicitly asked for a locale; otherwise reuse
+       the text of the server-rendered (now hidden) h4 heading and
+       .text-muted subtext. */
     if (!document.getElementById("mo-fp-title")) {
       var fpTitle = document.createElement("span");
-      fpTitle.id = "mo-fp-title"; fpTitle.textContent = tr("reset.password");
+      fpTitle.id = "mo-fp-title";
+      fpTitle.textContent = hasExplicitLocaleParam()
+        ? tr("reset.password")
+        : (serverText(document.querySelector("h4")) || getServerHeaderText());
       fpForm.parentNode.insertBefore(fpTitle, fpForm);
 
       var fpSub = document.createElement("span");
       fpSub.id = "mo-fp-subtitle";
-      fpSub.textContent = tr("reset.password.subtext");
+      fpSub.textContent = hasExplicitLocaleParam()
+        ? tr("reset.password.subtext")
+        : serverText(document.querySelector("p.text-muted"));
       fpForm.parentNode.insertBefore(fpSub, fpForm);
     }
 
@@ -1491,21 +1561,27 @@
       if (rpBody) rpBody.classList.add("px-2");
     }
 
-    /* Replace/create label text */
+    /* Replace/create label text. Overwritten with tr() only when this
+       page's URL explicitly asked for a locale; otherwise reuse an existing
+       server label's own text, or the input's own placeholder text. */
     var origLabel = fpForm.querySelector("label[for='emailAddress']") || fpForm.querySelector("label[for='username']") || document.getElementById("mo-fp-lbl");
     if (!origLabel) {
+      var fpPlaceholder = emailInput.getAttribute("placeholder") || "";
       origLabel = document.createElement("label");
       origLabel.setAttribute("for", emailInput.id);
       origLabel.id = "mo-fp-lbl";
-      origLabel.innerHTML = tr("email.field.label") + ' <span class="mo-req">*</span>';
+      var fpLblText = hasExplicitLocaleParam() ? tr("email.field.label") : fpPlaceholder;
+      origLabel.innerHTML = fpLblText + ' <span class="mo-req">*</span>';
       emailInput.parentNode.insertBefore(origLabel, emailInput);
     } else if (origLabel.id !== "mo-fp-lbl") {
+      var origLabelText = origLabel.textContent.trim();
       origLabel.id = "mo-fp-lbl"; origLabel.className = "";
-      origLabel.innerHTML = tr("email.field.label") + ' <span class="mo-req">*</span>';
+      var fpLblText2 = hasExplicitLocaleParam() ? tr("email.field.label") : origLabelText;
+      origLabel.innerHTML = fpLblText2 + ' <span class="mo-req">*</span>';
     }
 
-    /* Fix input placeholder */
-    emailInput.setAttribute("placeholder", tr("email.field.placeholder"));
+    /* Fix input placeholder only when explicitly asked for a locale */
+    if (hasExplicitLocaleParam()) emailInput.setAttribute("placeholder", tr("email.field.placeholder"));
 
     /* Insert helper text after the input wrapper (once) */
     if (!document.getElementById("mo-fp-helper")) {
@@ -1547,10 +1623,10 @@
       $(emailInput).removeClass("border border-danger mo-input-error");
     } else if (fpHasError && !document.getElementById("mo-fp-error")) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message instead of the raw backend banner
-         text (the backend's own copy is generic/untranslated on this
-         environment regardless of locale). */
-      var fpMessage = tr("forgot.error.default");
+      /* Show our own translated message only when this page's URL explicitly
+         asked for a locale; otherwise trust the backend's own (possibly
+         session-localized) error text. */
+      var fpMessage = hasExplicitLocaleParam() ? tr("forgot.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
       /* Wrap ONLY the input in a relative flex container for the cross icon */
       if (!emailInput.parentNode.classList.contains("mo-fp-inputwrap")) {
         var fpIw = document.createElement("div");
@@ -1667,10 +1743,10 @@
     var otpInput = document.getElementById("otpToken");
     if (!otpInput) return;
 
-    /* VERIFY YOUR IDENTITY title — re-sync on every tick (don't freeze). The
-       first tick can run before mo_locale settles (script imported early in the
-       JSP), so tr() may return English; a later tick must be able to correct it.
-       Compare before writing so a matched value doesn't retrigger the observer. */
+    /* VERIFY YOUR IDENTITY title. Overwritten with tr() only when this
+       page's URL explicitly asked for a locale; otherwise reuse whatever
+       text .login-header (shared across templates) or modalHeader itself
+       already carries server-side. */
     var modalHeader = document.getElementById("modal-header-main");
     if (modalHeader) {
       var otpTitle = document.getElementById("mo-otp-title");
@@ -1679,34 +1755,38 @@
         otpTitle.id = "mo-otp-title";
         modalHeader.insertBefore(otpTitle, modalHeader.firstChild);
       }
-      var otpTitleTxt = tr("otp.page.title");
+      var otpTitleTxt = hasExplicitLocaleParam()
+        ? tr("otp.page.title")
+        : (getServerHeaderText() || serverText(modalHeader));
       if (otpTitle.textContent !== otpTitleTxt) otpTitle.textContent = otpTitleTxt;
     }
 
     /* Label above OTP input — reuse a server-rendered label[for=otpToken]
-       if present, otherwise create one right before the input. Works whether
-       or not the page ships its own label. */
+       if present, otherwise create one right before the input. Overwritten
+       with tr() only when this page's URL explicitly asked for a locale;
+       otherwise the existing label text (or the input's own placeholder
+       text, if we have to create the label ourselves) is kept as-is. */
     var otpLbl = document.getElementById("mo-otp-lbl") || otpInput.parentNode.querySelector('label[for="otpToken"]');
     if (!otpLbl) {
+      var otpPlaceholderText = otpInput.getAttribute("placeholder") || "";
       otpLbl = document.createElement("label");
+      otpLbl.id = "mo-otp-lbl";
       otpLbl.setAttribute("for", "otpToken");
+      var otpInitialText = hasExplicitLocaleParam() ? tr("otp.field.label") : otpPlaceholderText;
+      otpLbl.innerHTML = otpInitialText + ' <span class="mo-req">*</span>';
       otpInput.parentNode.insertBefore(otpLbl, otpInput);
-    }
-    if (otpLbl.id !== "mo-otp-lbl") otpLbl.id = "mo-otp-lbl";
-    /* Re-sync on every tick like the title. Compare against the target first so
-       we only touch innerHTML when the locale actually changed \u2014 otherwise the
-       childList mutation retriggers the observer and loops infinitely. */
-    var otpLblHtml = tr("otp.field.label") + ' <span class="mo-req">*</span>';
-    if (otpLbl.innerHTML !== otpLblHtml) {
-      otpLbl.innerHTML = otpLblHtml;
-      otpLbl.dataset.moLocalized = "1";
+    } else if (otpLbl.id !== "mo-otp-lbl" && !otpLbl.querySelector(".mo-req")) {
+      var otpExistingText = otpLbl.textContent.trim();
+      var otpLblText = hasExplicitLocaleParam() ? tr("otp.field.label") : otpExistingText;
+      otpLbl.id = "mo-otp-lbl";
+      otpLbl.innerHTML = otpLblText + ' <span class="mo-req">*</span>';
     }
 
     /* Form padding (jQuery no-ops when classes already match, so no loop) */
     $('#validateIdentityForm').removeClass('p-4').addClass('p-0');
 
-    /* Placeholder (attribute not observed) */
-    if (otpInput.getAttribute("placeholder") !== tr("otp.field.placeholder")) {
+    /* Placeholder overwritten only when explicitly asked for a locale */
+    if (hasExplicitLocaleParam() && otpInput.getAttribute("placeholder") !== tr("otp.field.placeholder")) {
       otpInput.setAttribute("placeholder", tr("otp.field.placeholder"));
     }
 
@@ -1714,9 +1794,9 @@
     var verifyBtn = document.getElementById("validate");
     setBtnArrowLabel(verifyBtn, tr("otp.verify.button"));
 
-    /* Cancel button */
+    /* Cancel button — text overwritten only when explicitly asked for a locale */
     var cancelBtn = document.querySelector(".btn-cancel");
-    if (cancelBtn && cancelBtn.textContent !== tr("otp.cancel.button")) {
+    if (hasExplicitLocaleParam() && cancelBtn && cancelBtn.textContent !== tr("otp.cancel.button")) {
       cancelBtn.textContent = tr("otp.cancel.button");
     }
     /* Redirect Cancel to the broker login instead of submitting the
@@ -1752,10 +1832,10 @@
     var isPageHasError = errorOnPage();
     if (isPageHasError) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message instead of the raw backend banner
-         text (the backend's own copy is generic/untranslated on this
-         environment regardless of locale). */
-      var message = tr("otp.error.default");
+      /* Show our own translated message only when this page's URL explicitly
+         asked for a locale; otherwise trust the backend's own (possibly
+         session-localized) error text. */
+      var message = hasExplicitLocaleParam() ? tr("otp.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
       $('#otpToken').after(
         '<div id="mo-userlogin-error" class="error-message text-start" style="color:red;">' + message + '</div>'
       );
@@ -1897,32 +1977,43 @@
     var newPasswordInput = document.getElementById("newPassword") || fpForm.querySelector("input[name='password']");
     var confirmPasswordInput = document.getElementById("confirmPassword") || fpForm.querySelector("input[name='confirmPassword']");
 
-    /* Update title to RESET PASSWORD with close x button */
-    var h3 = document.querySelector(".login-header");
-    if (h3) {
-      var titleTextNode = null;
-      for (var i = 0; i < h3.childNodes.length; i++) {
-        var node = h3.childNodes[i];
-        if (node.nodeType === 3) {
-          titleTextNode = node;
-          break;
+    /* Update title to RESET PASSWORD only when this page's URL explicitly
+       asked for a locale; otherwise leave the server's own heading alone. */
+    if (hasExplicitLocaleParam()) {
+      var h3 = document.querySelector(".login-header");
+      if (h3) {
+        var titleTextNode = null;
+        for (var i = 0; i < h3.childNodes.length; i++) {
+          var node = h3.childNodes[i];
+          if (node.nodeType === 3) {
+            titleTextNode = node;
+            break;
+          }
         }
-      }
-      if (titleTextNode) {
-        titleTextNode.nodeValue = tr("reset.password");
-      } else {
-        h3.insertBefore(document.createTextNode(tr("reset.password")), h3.firstChild);
+        if (titleTextNode) {
+          titleTextNode.nodeValue = tr("reset.password");
+        } else {
+          h3.insertBefore(document.createTextNode(tr("reset.password")), h3.firstChild);
+        }
       }
     }
 
-    /* Add * to labels */
+    /* Add * to labels. Overwritten with tr() only when this page's URL
+       explicitly asked for a locale; otherwise keep the server's own label
+       text and only append the required-marker span.
+       NOTE: detection here still matches on the English phrases "new
+       password"/"confirm password", so on a fully localized page (in the
+       non-explicit branch) the marker may not attach — that's a
+       pre-existing limitation of this detection, not something we changed. */
     var labelSelector = "#passwordform p.text-left, #userform span.align-items-left, #userform span.d-flex";
     document.querySelectorAll(labelSelector).forEach(function (p) {
       var t = p.textContent.trim();
       if (t.toLowerCase().indexOf("new password") !== -1 && !p.querySelector(".mo-req")) {
-        p.innerHTML = tr("changepw.newpassword.label") + ' <span class="mo-req" style="color:#e02020; margin-left:2px;">*</span>';
+        var npText = hasExplicitLocaleParam() ? tr("changepw.newpassword.label") : t;
+        p.innerHTML = npText + ' <span class="mo-req" style="color:#e02020; margin-left:2px;">*</span>';
       } else if (t.toLowerCase().indexOf("confirm password") !== -1 && !p.querySelector(".mo-req")) {
-        p.innerHTML = tr("changepw.confirmpassword.label") + ' <span class="mo-req" style="color:#e02020; margin-left:2px;">*</span>';
+        var cpText = hasExplicitLocaleParam() ? tr("changepw.confirmpassword.label") : t;
+        p.innerHTML = cpText + ' <span class="mo-req" style="color:#e02020; margin-left:2px;">*</span>';
       }
     });
 
@@ -1969,7 +2060,7 @@
       wrap.className = "mo-pw-wrap";
       newPasswordInput.parentNode.insertBefore(wrap, newPasswordInput);
       wrap.appendChild(newPasswordInput);
-      newPasswordInput.setAttribute("placeholder", tr("password.field.placeholder"));
+      if (hasExplicitLocaleParam()) newPasswordInput.setAttribute("placeholder", tr("password.field.placeholder"));
 
       // Append eye toggle
       var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -1992,7 +2083,7 @@
       wrap.className = "mo-pw-wrap";
       confirmPasswordInput.parentNode.insertBefore(wrap, confirmPasswordInput);
       wrap.appendChild(confirmPasswordInput);
-      confirmPasswordInput.setAttribute("placeholder", tr("password.field.placeholder"));
+      if (hasExplicitLocaleParam()) confirmPasswordInput.setAttribute("placeholder", tr("password.field.placeholder"));
 
       // Append eye toggle
       var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -2455,13 +2546,22 @@
     var isPageHasError = errorOnPage();
     if (isPageHasError && !document.getElementById("mo-cp-server-error") && !(fpForm && fpForm.dataset.moServerErrDismissed)) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message instead of the raw backend banner
-         text (the backend's own copy is generic/untranslated on this
-         environment regardless of locale). The server can return several
-         different policy-violation strings (name/email in password, reused
-         password, etc.) — we validate those rules ourselves client-side, so
-         one generic translated message covers all of them here. */
-      var message = tr("changepw.error.policy");
+      /* Show our own translated message only when this page's URL explicitly
+         asked for a locale. The server can return several different
+         policy-violation strings (name/email in password, reused password,
+         etc.) — we validate those rules ourselves client-side, so one
+         generic translated message covers all of them here. Otherwise,
+         trust the backend's own (possibly session-localized) text, still
+         collapsing its verbose policy string down to a short message. */
+      var message;
+      if (hasExplicitLocaleParam()) {
+        message = tr("changepw.error.policy");
+      } else {
+        message = $('#error-alert-message .errorMessage li span').text().trim();
+        if (/should be present|should not be present/i.test(message)) {
+          message = "Password requirement not matched";
+        }
+      }
       var $cpWrap = $('.mo-pw-wrap');
       var cpErrHtml = '<p id="mo-cp-server-error" class="text-danger pb-2" style="font-size:12px;margin-top:-10px;margin-bottom:8px;">' + message + '</p>';
       if ($cpWrap.length) {
