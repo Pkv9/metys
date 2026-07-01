@@ -1,26 +1,7 @@
 (function () {
   "use strict";
 
-  /* ── LOCALE CAPTURE: must run FIRST, synchronously, before anything else.
-     Some pages (openidsso) are rendered by a JS framework that rewrites the
-     URL via history.replaceState almost immediately after mounting, which
-     strips ?request_locale= from the address bar. If we wait for run()
-     (triggered on DOMContentLoaded/setTimeout) to call getLocale(), that
-     rewrite may already have happened and the param is gone for good.
-     Reading it here, as the very first thing this script does, wins that
-     race regardless of what the page's own framework does afterward. */
-(function captureLocaleImmediately() {
-    try {
-        var params = new URLSearchParams(window.location.search);
-        var urlLang = params.get("request_locale");
-
-        if (urlLang) {
-            localStorage.setItem("mo_locale", urlLang.toLowerCase());
-        }
-    } catch (e) {}
-})();
-
-  /* ── CONFIG: hardcoded external URLs (edit here in one place) ── */
+  /* â”€â”€ CONFIG: hardcoded external URLs (edit here in one place) â”€â”€ */
   var MO_URLS = {
     /* Logout page -> external account logout */
     logoutRedirect: "https://dev.account.bouwmaat.nl/account/logout?returnTo=https://dev.bouwmaat.nl/account/logout",
@@ -32,7 +13,7 @@
     fontStylesheet: "https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap"
   };
 
-  /* White right-arrow as an inline SVG data URI — used as a background-image
+  /* White right-arrow as an inline SVG data URI â€” used as a background-image
      inside the brand submit buttons. <input> buttons can't hold a child <i>
      or use ::after, so the icon lives in the button's background instead. */
   var MO_ARROW_BG = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='4' y1='12' x2='20' y2='12'/%3E%3Cpolyline points='13 5 20 12 13 19'/%3E%3C/svg%3E\")";
@@ -45,7 +26,7 @@
     .forEach(el => {
       el.style.setProperty('display', 'flex', 'important');
     });
-  /* ── PAGE DETECTION HELPERS ── */
+  /* â”€â”€ PAGE DETECTION HELPERS â”€â”€ */
   function checkIsLogin() {
     var path = window.location.pathname.toLowerCase();
     if (path.indexOf("/moas/login") !== -1 || path.indexOf("/moas/idp/userlogin") !== -1) {
@@ -117,51 +98,38 @@
   }
 
 
-  /* ── LOGOUT PAGE: auto-redirect ── */
+  /* â”€â”€ LOGOUT PAGE: auto-redirect â”€â”€ */
   function applyLogoutPage() {
     if (!checkIsLogout()) return;
     $('.d-flex.justify-content-center.align-items-center.h-25').addClass('d-none')
     window.location.replace(MO_URLS.logoutRedirect);
   }
 
-  /* ── ENDUSER DASHBOARD PAGE (/moas/enduserwelcome) ── */
+  /* â”€â”€ ENDUSER DASHBOARD PAGE (/moas/enduserwelcome) â”€â”€ */
   function applyEnduserDashboard() {
     if (!checkIsEnduserDashboard()) return;
     window.location.replace(MO_URLS.dashboardRedirect);
   }
 
-  /* ── PASSWORD SENT MESSAGE PAGE (idp/showpasswordsentmessage) ── */
+  /* â”€â”€ PASSWORD SENT MESSAGE PAGE (idp/showpasswordsentmessage) â”€â”€ */
   function applyPasswordSentMessage() {
     if (!checkIsPasswordSentMessage()) return;
 
     /* Reuse the shared /login page styling (background, card, font, etc.) */
     injectFontAndCss();
 
-    /* This page only: override the card padding via jQuery to 20px 18px.
-       Guarded (only write when it differs) so the style mutation doesn't
-       retrigger the observer in a loop. */
-    $('#login-wrapper').each(function () {
-      if (this.style.padding !== "20px 18px") {
-        this.style.setProperty("padding", "20px 18px", "important");
-      }
-    });
-
     /* Full-height centering for the React layout wrapper.
-       Only set when not already set — otherwise the style mutation
+       Only set when not already set â€” otherwise the style mutation
        retriggers the observer and creates an infinite loop. */
     $('.d-flex.flex-column.align-items-center.justify-content-center').each(function () {
       if (this.style.height !== "100vh") this.style.height = "100vh";
     });
 
-    /* Replace heading text with RESET PASSWORD only when this page's URL
-       explicitly asked for a locale; otherwise trust the server's own
-       (possibly session-localized) heading. Guarded so we only write when
-       it differs — avoids the observer loop. */
-    if (hasExplicitLocaleParam()) {
-      var psmTitle = document.querySelector("#login-wrapper h4");
-      if (psmTitle && psmTitle.textContent !== tr("reset.password")) {
-        psmTitle.textContent = tr("reset.password");
-      }
+    /* Replace heading text with RESET PASSWORD (localized).
+       Guarded so we only write when it differs â€” avoids the observer loop. */
+    var psmTitle = document.querySelector("#login-wrapper h4");
+    if (psmTitle && psmTitle.textContent !== tr("reset.password")) {
+      psmTitle.textContent = tr("reset.password");
     }
 
     /* Point "Go back to Login Page" at the broker login (dashboard) URL */
@@ -170,7 +138,7 @@
       goBackLink.setAttribute("href", MO_URLS.dashboardRedirect);
     }
 
-    /* Page-specific styling (inject once) — makes this page match /login:
+    /* Page-specific styling (inject once) â€” makes this page match /login:
        carded wrapper, left-aligned bold heading, clean green message box,
        and styled links. */
     if (!document.getElementById("mo-psm-css")) {
@@ -188,7 +156,7 @@
         /* Card (override the inline white border/bg from the markup) */
         "#login-wrapper{background:#fff!important;border:1px solid #e0e7ef!important;" +
         "border-radius:4px!important;box-shadow:0 2px 12px rgba(0,0,0,.08)!important;" +
-        "padding:20px 10px!important;max-width:560px!important;width:100%!important;margin:0 auto!important;}" +
+        "padding:36px 40px 32px!important;max-width:560px!important;width:100%!important;margin:0 auto!important;}" +
 
         /* Heading -> left-aligned bold, like the LOG IN title */
         "#login-wrapper h4{font-family:'Figtree',sans-serif!important;font-size:26px!important;" +
@@ -218,9 +186,9 @@
     
   }
 
-  /* ── ERROR DETECTION HELPER ── */
+  /* â”€â”€ ERROR DETECTION HELPER â”€â”€ */
   /* Detects the server-rendered error banner (#error-alert-message).
-     The wrapper structure stays constant — only the message text changes:
+     The wrapper structure stays constant â€” only the message text changes:
        #error-alert-message > ul.errorMessage > li > span  ("...message...")
      Returns true when a non-empty error message is present. */
   function errorOnPage() {
@@ -235,10 +203,10 @@
     return true;
   }
 
-  /* ── INJECT FONT AND CSS ── */
+  /* â”€â”€ INJECT FONT AND CSS â”€â”€ */
   function injectFontAndCss() {
 
-  /* ── FONT ── */
+  /* â”€â”€ FONT â”€â”€ */
   if (!document.getElementById("mo-font")) {
     var lk = document.createElement("link");
     lk.id = "mo-font"; lk.rel = "stylesheet";
@@ -246,10 +214,10 @@
     document.head.appendChild(lk);
   }
 
-  /* ── CSS ── */
+  /* â”€â”€ CSS â”€â”€ */
   if (!document.getElementById("mo-css")) {
     var css =
-      /* Page bg — keep full viewport height so flex centering works */
+      /* Page bg â€” keep full viewport height so flex centering works */
       "#login-main-body{" +
       "background:#eef1f7!important;" +
       "font-family:'Figtree',sans-serif!important;" +
@@ -263,14 +231,14 @@
       "}" +
       "#login-body > br,#login-main-body > br{display:none!important;}" +
 
-      /* Logo — hidden */
+      /* Logo â€” hidden */
       "#login-header{display:none!important;}" +
 
       /* Card */
       "#login-wrapper{" +
       "background:#fff!important;border:1px solid #e0e7ef!important;" +
       "border-radius:4px!important;box-shadow:0 2px 12px rgba(0,0,0,.08)!important;" +
-      "padding:20px 10px!important;max-width:560px!important;margin:0 auto!important;" +
+      "padding:36px 40px 32px!important;max-width:560px!important;margin:0 auto!important;" +
       "}" +
 
       /* Form: stretch children to full width (removes Bootstrap center alignment) */
@@ -285,11 +253,11 @@
       "#goBack," +
       "a[href*='businessfreetrial'],a[href*='forgotpassword']:not(#mo-forgot),a[href*='resetpassword']:not(#mo-forgot),.col-auto.form-group{display:none!important;}" +
 
-      /* LOG IN heading — top LEFT */
+      /* LOG IN heading â€” top LEFT */
       "#mo-title{display:block;font-family:'Figtree',sans-serif;font-size:26px;font-weight:800;" +
       "color:#0d1b2a;margin-bottom:22px;text-align:left;}" +
 
-      /* Labels — left aligned */
+      /* Labels â€” left aligned */
       ".mo-lbl{display:block;color:#3c515d;font-size:14px;font-weight:700;padding:0 0 4px;" +
       "font-family:'Figtree',sans-serif;text-align:left;}" +
       ".mo-lbl .mo-req{color:#e02020;margin-left:2px;}" +
@@ -316,7 +284,7 @@
       ".mo-eye:hover{color:#0A55D7;}" +
       ".mo-eye svg{width:18px;height:18px;pointer-events:none;}" +
 
-      /* Forgot link row — right aligned */
+      /* Forgot link row â€” right aligned */
       "#mo-bottom{display:flex;align-items:center;justify-content:flex-end;margin:16px 0 20px;width:100%;}" +
       "#mo-forgot{font-size:13px;font-weight:500;color:#0A55D7;text-decoration:none;font-family:'Figtree',sans-serif;}" +
       "#mo-forgot:hover{text-decoration:underline;}" +
@@ -326,7 +294,7 @@
       "font-size:14px;color:#6b7a8d;background:#f5f7fa;display:flex;align-items:center;" +
       "font-family:'Figtree',sans-serif;box-sizing:border-box;width:100%;cursor:default;}" +
 
-      /* Login button — left-aligned */
+      /* Login button â€” left-aligned */
       "#loginbutton{" +
       "display:inline-flex!important;align-items:center!important;justify-content:center!important;" +
       "gap:8px!important;min-height:40px!important;padding:8px 20px!important;" +
@@ -338,7 +306,7 @@
       "background-repeat:no-repeat!important;background-position:right 18px center!important;background-size:15px 15px!important;" +
       "}" +
       "#loginbutton:hover{background-color:#0844b0!important;}" +
-      /* button row — left align the submit button */
+      /* button row â€” left align the submit button */
       "#enduserloginform .row div:has(#loginbutton),#idploginform .row div:has(#loginbutton){text-align:left!important;display:block!important;}" +
 
       /* Mobile */
@@ -369,60 +337,18 @@
   }
 }
 
-  /* ── HELPERS ── */
+  /* â”€â”€ HELPERS â”€â”€ */
   function getForgotHref() {
     var a = document.querySelector("a[href*='forgotpassword'], a[href*='resetpassword']");
     return a ? a.href : "#";
   }
 
-  /* True only when THIS page's own URL explicitly asks for a locale via
-     ?request_locale=... . This is the one signal we can trust to mean
-     "the visitor/flow is asking for a specific language right now" — as
-     opposed to a session-driven page (e.g. openidsso -> userlogin) where
-     the server may already be rendering the correct locale via server-side
-     session state that never reaches the URL, a cookie, or localStorage at
-     all. We deliberately do NOT fall back to a persisted/stored locale here:
-     doing so would make us overwrite server text on those session-driven
-     pages too, silently reintroducing the original bug (this script
-     clobbering already-correct server-rendered text with tr()'s English
-     fallback) whenever the signal doesn't happen to be visible to JS. */
-function hasExplicitLocaleParam() {
-    return !!(
-        getUrlParam("request_locale") ||
-        localStorage.getItem("mo_locale")
-    );
-}
-
-  /* Return the trimmed text of an element, or "" if it doesn't exist.
-     Used as the "trust the server" fallback below. */
-  function serverText(el) {
-    return el ? (el.textContent || "").trim() : "";
-  }
-
-  /* .login-header carries the page's real heading server-side (hidden and
-     replaced by our own styled element for layout). Used as the
-     "trust the server" fallback for titles below. */
-  function getServerHeaderText() {
-    return serverText(document.querySelector(".login-header"));
-  }
-
-  /* The original "Forgot password" link's own text, used as the
-     "trust the server" fallback when we replace it with #mo-forgot. */
-  function getForgotLinkText() {
-    var a = document.querySelector("a[href*='forgotpassword'], a[href*='resetpassword']");
-    return a ? a.textContent.trim() : "";
-  }
-
   /* Set a submit button's label. The trailing white right-arrow is supplied
      by CSS (background-image: MO_ARROW_BG) on the button selectors, so the
      look is identical whether the button is an <input> or a <button>.
-     Only overwrites the button's own text when this page's URL explicitly
-     requested a locale — otherwise the text is left as the server rendered
-     it (see hasExplicitLocaleParam above) and we only apply the CSS marker.
-     Idempotent — safe to call on every observer pass. */
+     Idempotent â€” safe to call on every observer pass. */
   function setBtnArrowLabel(btn, label) {
     if (!btn) return;
-    if (!hasExplicitLocaleParam()) { btn.dataset.mo = "1"; return; }
     if (btn.tagName === "INPUT") {
       if (btn.value !== label) { btn.value = label; btn.dataset.mo = "1"; }
     } else {
@@ -435,52 +361,25 @@ function hasExplicitLocaleParam() {
     return params.get(name);
   }
 
-function getLocale() {
-    var urlLang = getUrlParam("request_locale");
-    console.log("urlLang:", urlLang);
-
-    if (urlLang) {
-        urlLang = urlLang.toLowerCase();
-        localStorage.setItem("mo_locale", urlLang);
-        console.log("Using URL locale:", urlLang);
-        return urlLang;
-    }
-
-    var stored = localStorage.getItem("mo_locale");
-    console.log("stored locale:", stored, "valid:", !!(stored && TRANSLATIONS[stored]));
-    if (stored && TRANSLATIONS[stored]) {
-        return stored;
-    }
-
-    var lang = null;
-    var sel = document.getElementById("languageSelect");
-    if (sel && sel.value) {
-        lang = sel.value.toLowerCase();
-        console.log("lang from selector:", lang);
-    }
-
+  function getLocale() {
+    var lang = getUrlParam("request_locale");
     if (!lang) {
-        var htmlLang = document.documentElement.getAttribute("lang");
-        if (htmlLang) {
-            lang = htmlLang.trim().toLowerCase().split("-")[0];
-            console.log("lang from <html lang>:", lang);
-        }
+      var sel = document.getElementById("languageSelect");
+      if (sel) lang = sel.value;
     }
-
-    if (lang && TRANSLATIONS[lang]) {
-        localStorage.setItem("mo_locale", lang);
-        console.log("Final resolved lang:", lang);
-        return lang;
+    if (!lang) {
+      /* Fall back to the document language, e.g. <html lang="it">. */
+      var htmlLang = document.documentElement.getAttribute("lang");
+      if (htmlLang) lang = htmlLang.trim().toLowerCase().split("-")[0];
     }
+    if (lang) localStorage.setItem("mo_locale", lang);
+    return lang;
+  }
 
-    console.log("Falling back to 'en'");
-    return "en";
-}
-
-  /* ── TRANSLATIONS ──
+  /* â”€â”€ TRANSLATIONS â”€â”€
      Keyed by locale code (matches #languageSelect option values + mo_locale).
      tr(key) resolves against the current mo_locale, falling back to English,
-     then to the raw key if nothing is found. Structural glyphs (→, *) are
+     then to the raw key if nothing is found. Structural glyphs (â†’, *) are
      appended in code, never stored here. */
   var TRANSLATIONS = {
     en: {
@@ -493,7 +392,7 @@ function getLocale() {
       "forgot.password.link": "Forgot password",
       "reset.password": "RESET PASSWORD",
       "reset.password.subtext": "We will send you an email with instructions on how to recover it",
-      "forgot.page.helper": "Not receiving an email to reset your password? Then the e-mail address used is not known to us. Can’t figure it out?",
+      "forgot.page.helper": "Not receiving an email to reset your password? Then the e-mail address used is not known to us. Canâ€™t figure it out?",
       "forgot.page.helper.link": "Contact customer service",
       "next.button": "NEXT",
       "otp.page.title": "VERIFY YOUR IDENTITY",
@@ -519,11 +418,7 @@ function getLocale() {
       "changepw.strength.strong": "Strong",
       "changepw.error.required": "New password is required.",
       "changepw.error.requirements": "Please satisfy all password requirements.",
-      "changepw.error.mismatch": "The password don't match. Please try again",
-      "login.error.default": "Invalid username or password. Please try again.",
-      "otp.error.default": "The code you entered is incorrect. Please try again.",
-      "forgot.error.default": "Something went wrong. Please try again.",
-      "changepw.error.policy": "Password requirement not matched."
+      "changepw.error.mismatch": "The password don't match. Please try again"
     },
     de: {
       "login.page.title": "ANMELDEN",
@@ -533,39 +428,35 @@ function getLocale() {
       "password.field.label": "Passwort",
       "password.field.placeholder": "Passwort",
       "forgot.password.link": "Passwort vergessen",
-      "reset.password": "PASSWORT ZURÜCKSETZEN",
+      "reset.password": "PASSWORT ZURÃœCKSETZEN",
       "reset.password.subtext": "Wir senden Ihnen eine E-Mail mit Anweisungen zur Wiederherstellung",
-      "forgot.page.helper": "Sie erhalten keine E-Mail zum Zurücksetzen Ihres Passworts? Dann ist die verwendete E-Mail-Adresse uns nicht bekannt. Kommen Sie nicht weiter?",
+      "forgot.page.helper": "Sie erhalten keine E-Mail zum ZurÃ¼cksetzen Ihres Passworts? Dann ist die verwendete E-Mail-Adresse uns nicht bekannt. Kommen Sie nicht weiter?",
       "forgot.page.helper.link": "Kundenservice kontaktieren",
       "next.button": "WEITER",
-      "otp.page.title": "IDENTITÄT BESTÄTIGEN",
+      "otp.page.title": "IDENTITÃ„T BESTÃ„TIGEN",
       "otp.field.label": "OTP hier eingeben",
       "otp.field.placeholder": "OTP-Nummer",
-      "otp.verify.button": "BESTÄTIGEN",
+      "otp.verify.button": "BESTÃ„TIGEN",
       "otp.cancel.button": "ABBRECHEN",
       "changepw.newpassword.label": "Neues Passwort",
-      "changepw.confirmpassword.label": "Passwort bestätigen",
+      "changepw.confirmpassword.label": "Passwort bestÃ¤tigen",
       "changepw.req.length": "{min}-{max} Zeichen",
-      "changepw.req.uppercase": "Mindestens ein Großbuchstabe",
+      "changepw.req.uppercase": "Mindestens ein GroÃŸbuchstabe",
       "changepw.req.number": "Mindestens eine Ziffer",
       "changepw.req.symbol": "Mindestens ein Sonderzeichen ( {symbols} )",
-      "changepw.req.consecutive": "Enthält nicht mehr als {n} aufeinanderfolgende Zeichen von {fields}",
+      "changepw.req.consecutive": "EnthÃ¤lt nicht mehr als {n} aufeinanderfolgende Zeichen von {fields}",
       "changepw.field.firstname": "Vorname",
       "changepw.field.lastname": "Nachname",
       "changepw.field.username": "Benutzername",
       "changepw.field.email": "E-Mail",
-      "changepw.strength.label": "Passwortstärke",
+      "changepw.strength.label": "PasswortstÃ¤rke",
       "changepw.strength.weak": "Mangelhaft",
-      "changepw.strength.fair": "Mäßig",
+      "changepw.strength.fair": "MÃ¤ÃŸig",
       "changepw.strength.good": "Gut",
       "changepw.strength.strong": "Stark",
       "changepw.error.required": "Neues Passwort ist erforderlich.",
-      "changepw.error.requirements": "Bitte erfüllen Sie alle Passwortanforderungen.",
-      "changepw.error.mismatch": "Die Passwörter stimmen nicht überein. Bitte versuchen Sie es erneut.",
-      "login.error.default": "Ungültiger Benutzername oder ungültiges Passwort. Bitte versuchen Sie es erneut.",
-      "otp.error.default": "Der eingegebene Code ist falsch. Bitte versuchen Sie es erneut.",
-      "forgot.error.default": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
-      "changepw.error.policy": "Passwortanforderung nicht erfüllt."
+      "changepw.error.requirements": "Bitte erfÃ¼llen Sie alle Passwortanforderungen.",
+      "changepw.error.mismatch": "Die PasswÃ¶rter stimmen nicht Ã¼berein. Bitte versuchen Sie es erneut."
     },
     it: {
       "login.page.title": "ACCEDI",
@@ -577,10 +468,10 @@ function getLocale() {
       "forgot.password.link": "Password dimenticata",
       "reset.password": "REIMPOSTA PASSWORD",
       "reset.password.subtext": "Ti invieremo un'email con le istruzioni su come recuperarla",
-      "forgot.page.helper": "Non ricevi l'email per reimpostare la password? Allora l'indirizzo email utilizzato non è registrato. Non riesci a capire?",
+      "forgot.page.helper": "Non ricevi l'email per reimpostare la password? Allora l'indirizzo email utilizzato non Ã¨ registrato. Non riesci a capire?",
       "forgot.page.helper.link": "Contatta il servizio clienti",
       "next.button": "AVANTI",
-      "otp.page.title": "VERIFICA LA TUA IDENTITÀ",
+      "otp.page.title": "VERIFICA LA TUA IDENTITÃ€",
       "otp.field.label": "Inserisci qui l'OTP",
       "otp.field.placeholder": "Numero OTP",
       "otp.verify.button": "VERIFICA",
@@ -591,7 +482,7 @@ function getLocale() {
       "changepw.req.uppercase": "Almeno una lettera maiuscola",
       "changepw.req.number": "Almeno un numero",
       "changepw.req.symbol": "Almeno un carattere speciale ( {symbols} )",
-      "changepw.req.consecutive": "Non contiene più di {n} caratteri consecutivi di {fields}",
+      "changepw.req.consecutive": "Non contiene piÃ¹ di {n} caratteri consecutivi di {fields}",
       "changepw.field.firstname": "nome",
       "changepw.field.lastname": "cognome",
       "changepw.field.username": "nome utente",
@@ -601,139 +492,123 @@ function getLocale() {
       "changepw.strength.fair": "Discreta",
       "changepw.strength.good": "Buona",
       "changepw.strength.strong": "Forte",
-      "changepw.error.required": "La nuova password è obbligatoria.",
+      "changepw.error.required": "La nuova password Ã¨ obbligatoria.",
       "changepw.error.requirements": "Soddisfa tutti i requisiti della password.",
-      "changepw.error.mismatch": "Le password non corrispondono. Riprova.",
-      "login.error.default": "Nome utente o password non validi. Riprova.",
-      "otp.error.default": "Il codice inserito non è corretto. Riprova.",
-      "forgot.error.default": "Qualcosa è andato storto. Riprova.",
-      "changepw.error.policy": "Requisito della password non soddisfatto."
+      "changepw.error.mismatch": "Le password non corrispondono. Riprova."
     },
     ar: {
-      "login.page.title": "تسجيل الدخول",
-      "login.page.button": "تسجيل الدخول",
-      "email.field.placeholder": "البريد الإلكتروني",
-      "email.field.label": "عنوان البريد الإلكتروني",
-      "password.field.label": "كلمة المرور",
-      "password.field.placeholder": "كلمة المرور",
-      "forgot.password.link": "نسيت كلمة المرور",
-      "reset.password": "إعادة تعيين كلمة المرور",
-      "reset.password.subtext": "سنرسل لك بريدًا إلكترونيًا يحتوي على تعليمات حول كيفية استعادتها",
-      "forgot.page.helper": "ألا تتلقى بريدًا إلكترونيًا لإعادة تعيين كلمة المرور؟ إذًا عنوان البريد الإلكتروني المستخدم غير معروف لدينا. لا يمكنك معرفة ذلك؟",
-      "forgot.page.helper.link": "اتصل بخدمة العملاء",
-      "next.button": "التالي",
-      "otp.page.title": "تحقق من هويتك",
-      "otp.field.label": "أدخل رمز OTP هنا",
-      "otp.field.placeholder": "رقم OTP",
-      "otp.verify.button": "تحقق",
-      "otp.cancel.button": "إلغاء",
-      "changepw.newpassword.label": "كلمة المرور الجديدة",
-      "changepw.confirmpassword.label": "تأكيد كلمة المرور",
-      "changepw.req.length": "{min}-{max} حرفًا",
-      "changepw.req.uppercase": "حرف كبير واحد على الأقل",
-      "changepw.req.number": "رقم واحد على الأقل",
-      "changepw.req.symbol": "رمز خاص واحد على الأقل ( {symbols} )",
-      "changepw.req.consecutive": "لا يحتوي على أكثر من {n} أحرف متتالية من {fields}",
-      "changepw.field.firstname": "الاسم الأول",
-      "changepw.field.lastname": "اسم العائلة",
-      "changepw.field.username": "اسم المستخدم",
-      "changepw.field.email": "البريد الإلكتروني",
-      "changepw.strength.label": "قوة كلمة المرور",
-      "changepw.strength.weak": "رديئة",
-      "changepw.strength.fair": "متوسطة",
-      "changepw.strength.good": "جيدة",
-      "changepw.strength.strong": "قوية",
-      "changepw.error.required": "كلمة المرور الجديدة مطلوبة.",
-      "changepw.error.requirements": "يرجى استيفاء جميع متطلبات كلمة المرور.",
-      "changepw.error.mismatch": "كلمتا المرور غير متطابقتين. يرجى المحاولة مرة أخرى.",
-      "login.error.default": "اسم المستخدم أو كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.",
-      "otp.error.default": "الرمز الذي أدخلته غير صحيح. يرجى المحاولة مرة أخرى.",
-      "forgot.error.default": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
-      "changepw.error.policy": "لم يتم استيفاء متطلبات كلمة المرور."
+      "login.page.title": "ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„",
+      "login.page.button": "ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„",
+      "email.field.placeholder": "Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ",
+      "email.field.label": "Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ",
+      "password.field.label": "ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
+      "password.field.placeholder": "ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
+      "forgot.password.link": "Ù†Ø³ÙŠØª ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
+      "reset.password": "Ø¥Ø¹Ø§Ø¯Ø© ØªØ¹ÙŠÙŠÙ† ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
+      "reset.password.subtext": "Ø³Ù†Ø±Ø³Ù„ Ù„Ùƒ Ø¨Ø±ÙŠØ¯Ù‹Ø§ Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠÙ‹Ø§ ÙŠØ­ØªÙˆÙŠ Ø¹Ù„Ù‰ ØªØ¹Ù„ÙŠÙ…Ø§Øª Ø­ÙˆÙ„ ÙƒÙŠÙÙŠØ© Ø§Ø³ØªØ¹Ø§Ø¯ØªÙ‡Ø§",
+      "forgot.page.helper": "Ø£Ù„Ø§ ØªØªÙ„Ù‚Ù‰ Ø¨Ø±ÙŠØ¯Ù‹Ø§ Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠÙ‹Ø§ Ù„Ø¥Ø¹Ø§Ø¯Ø© ØªØ¹ÙŠÙŠÙ† ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±ØŸ Ø¥Ø°Ù‹Ø§ Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ Ù„Ø¯ÙŠÙ†Ø§. Ù„Ø§ ÙŠÙ…ÙƒÙ†Ùƒ Ù…Ø¹Ø±ÙØ© Ø°Ù„ÙƒØŸ",
+      "forgot.page.helper.link": "Ø§ØªØµÙ„ Ø¨Ø®Ø¯Ù…Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡",
+      "next.button": "Ø§Ù„ØªØ§Ù„ÙŠ",
+      "otp.page.title": "ØªØ­Ù‚Ù‚ Ù…Ù† Ù‡ÙˆÙŠØªÙƒ",
+      "otp.field.label": "Ø£Ø¯Ø®Ù„ Ø±Ù…Ø² OTP Ù‡Ù†Ø§",
+      "otp.field.placeholder": "Ø±Ù‚Ù… OTP",
+      "otp.verify.button": "ØªØ­Ù‚Ù‚",
+      "otp.cancel.button": "Ø¥Ù„ØºØ§Ø¡",
+      "changepw.newpassword.label": "ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©",
+      "changepw.confirmpassword.label": "ØªØ£ÙƒÙŠØ¯ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
+      "changepw.req.length": "{min}-{max} Ø­Ø±ÙÙ‹Ø§",
+      "changepw.req.uppercase": "Ø­Ø±Ù ÙƒØ¨ÙŠØ± ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„",
+      "changepw.req.number": "Ø±Ù‚Ù… ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„",
+      "changepw.req.symbol": "Ø±Ù…Ø² Ø®Ø§Øµ ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„ ( {symbols} )",
+      "changepw.req.consecutive": "Ù„Ø§ ÙŠØ­ØªÙˆÙŠ Ø¹Ù„Ù‰ Ø£ÙƒØ«Ø± Ù…Ù† {n} Ø£Ø­Ø±Ù Ù…ØªØªØ§Ù„ÙŠØ© Ù…Ù† {fields}",
+      "changepw.field.firstname": "Ø§Ù„Ø§Ø³Ù… Ø§Ù„Ø£ÙˆÙ„",
+      "changepw.field.lastname": "Ø§Ø³Ù… Ø§Ù„Ø¹Ø§Ø¦Ù„Ø©",
+      "changepw.field.username": "Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…",
+      "changepw.field.email": "Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ",
+      "changepw.strength.label": "Ù‚ÙˆØ© ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
+      "changepw.strength.weak": "Ø±Ø¯ÙŠØ¦Ø©",
+      "changepw.strength.fair": "Ù…ØªÙˆØ³Ø·Ø©",
+      "changepw.strength.good": "Ø¬ÙŠØ¯Ø©",
+      "changepw.strength.strong": "Ù‚ÙˆÙŠØ©",
+      "changepw.error.required": "ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø© Ù…Ø·Ù„ÙˆØ¨Ø©.",
+      "changepw.error.requirements": "ÙŠØ±Ø¬Ù‰ Ø§Ø³ØªÙŠÙØ§Ø¡ Ø¬Ù…ÙŠØ¹ Ù…ØªØ·Ù„Ø¨Ø§Øª ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±.",
+      "changepw.error.mismatch": "ÙƒÙ„Ù…ØªØ§ Ø§Ù„Ù…Ø±ÙˆØ± ØºÙŠØ± Ù…ØªØ·Ø§Ø¨Ù‚ØªÙŠÙ†. ÙŠØ±Ø¬Ù‰ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© Ù…Ø±Ø© Ø£Ø®Ø±Ù‰."
     },
     pt: {
       "login.page.title": "ENTRAR",
       "login.page.button": "ENTRAR",
       "email.field.placeholder": "E-mail",
-      "email.field.label": "Endereço de e-mail",
+      "email.field.label": "EndereÃ§o de e-mail",
       "password.field.label": "Senha",
       "password.field.placeholder": "Senha",
       "forgot.password.link": "Esqueceu a senha",
       "reset.password": "REDEFINIR SENHA",
-      "reset.password.subtext": "Enviaremos um e-mail com instruções sobre como recuperá-la",
-      "forgot.page.helper": "Não está recebendo um e-mail para redefinir sua senha? Então o endereço de e-mail usado não é conhecido por nós. Não consegue descobrir?",
+      "reset.password.subtext": "Enviaremos um e-mail com instruÃ§Ãµes sobre como recuperÃ¡-la",
+      "forgot.page.helper": "NÃ£o estÃ¡ recebendo um e-mail para redefinir sua senha? EntÃ£o o endereÃ§o de e-mail usado nÃ£o Ã© conhecido por nÃ³s. NÃ£o consegue descobrir?",
       "forgot.page.helper.link": "Entre em contato com o atendimento ao cliente",
-      "next.button": "PRÓXIMO",
+      "next.button": "PRÃ“XIMO",
       "otp.page.title": "VERIFIQUE SUA IDENTIDADE",
       "otp.field.label": "Digite o OTP aqui",
-      "otp.field.placeholder": "Número OTP",
+      "otp.field.placeholder": "NÃºmero OTP",
       "otp.verify.button": "VERIFICAR",
       "otp.cancel.button": "CANCELAR",
       "changepw.newpassword.label": "Nova senha",
       "changepw.confirmpassword.label": "Confirmar senha",
       "changepw.req.length": "{min}-{max} caracteres",
-      "changepw.req.uppercase": "Pelo menos uma letra maiúscula",
-      "changepw.req.number": "Pelo menos um número",
+      "changepw.req.uppercase": "Pelo menos uma letra maiÃºscula",
+      "changepw.req.number": "Pelo menos um nÃºmero",
       "changepw.req.symbol": "Pelo menos um caractere especial ( {symbols} )",
-      "changepw.req.consecutive": "Não contém mais de {n} caracteres consecutivos de {fields}",
+      "changepw.req.consecutive": "NÃ£o contÃ©m mais de {n} caracteres consecutivos de {fields}",
       "changepw.field.firstname": "nome",
       "changepw.field.lastname": "sobrenome",
-      "changepw.field.username": "nome de usuário",
+      "changepw.field.username": "nome de usuÃ¡rio",
       "changepw.field.email": "e-mail",
-      "changepw.strength.label": "Força da senha",
+      "changepw.strength.label": "ForÃ§a da senha",
       "changepw.strength.weak": "Ruim",
-      "changepw.strength.fair": "Razoável",
+      "changepw.strength.fair": "RazoÃ¡vel",
       "changepw.strength.good": "Boa",
       "changepw.strength.strong": "Forte",
-      "changepw.error.required": "A nova senha é obrigatória.",
+      "changepw.error.required": "A nova senha Ã© obrigatÃ³ria.",
       "changepw.error.requirements": "Atenda a todos os requisitos da senha.",
-      "changepw.error.mismatch": "As senhas não coincidem. Tente novamente.",
-      "login.error.default": "Nome de usuário ou senha inválidos. Tente novamente.",
-      "otp.error.default": "O código inserido está incorreto. Tente novamente.",
-      "forgot.error.default": "Algo deu errado. Tente novamente.",
-      "changepw.error.policy": "Requisito de senha não atendido."
+      "changepw.error.mismatch": "As senhas nÃ£o coincidem. Tente novamente."
     },
     es: {
-      "login.page.title": "INICIAR SESIÓN",
-      "login.page.button": "INICIAR SESIÓN",
-      "email.field.placeholder": "correo electrónico",
-      "email.field.label": "Correo electrónico",
-      "password.field.label": "Contraseña",
-      "password.field.placeholder": "Contraseña",
-      "forgot.password.link": "¿Olvidó su contraseña?",
-      "reset.password": "RESTABLECER CONTRASEÑA",
-      "reset.password.subtext": "Le enviaremos un correo electrónico con instrucciones sobre cómo recuperarla",
-      "forgot.page.helper": "¿No recibe un correo electrónico para restablecer su contraseña? Entonces la dirección de correo electrónico utilizada no es conocida por nosotros. ¿No lo puede averiguar?",
-      "forgot.page.helper.link": "Contactar con atención al cliente",
+      "login.page.title": "INICIAR SESIÃ“N",
+      "login.page.button": "INICIAR SESIÃ“N",
+      "email.field.placeholder": "correo electrÃ³nico",
+      "email.field.label": "Correo electrÃ³nico",
+      "password.field.label": "ContraseÃ±a",
+      "password.field.placeholder": "ContraseÃ±a",
+      "forgot.password.link": "Â¿OlvidÃ³ su contraseÃ±a?",
+      "reset.password": "RESTABLECER CONTRASEÃ‘A",
+      "reset.password.subtext": "Le enviaremos un correo electrÃ³nico con instrucciones sobre cÃ³mo recuperarla",
+      "forgot.page.helper": "Â¿No recibe un correo electrÃ³nico para restablecer su contraseÃ±a? Entonces la direcciÃ³n de correo electrÃ³nico utilizada no es conocida por nosotros. Â¿No lo puede averiguar?",
+      "forgot.page.helper.link": "Contactar con atenciÃ³n al cliente",
       "next.button": "SIGUIENTE",
       "otp.page.title": "VERIFIQUE SU IDENTIDAD",
-      "otp.field.label": "Ingrese el OTP aquí",
-      "otp.field.placeholder": "Número OTP",
+      "otp.field.label": "Ingrese el OTP aquÃ­",
+      "otp.field.placeholder": "NÃºmero OTP",
       "otp.verify.button": "VERIFICAR",
       "otp.cancel.button": "CANCELAR",
-      "changepw.newpassword.label": "Nueva contraseña",
-      "changepw.confirmpassword.label": "Confirmar contraseña",
+      "changepw.newpassword.label": "Nueva contraseÃ±a",
+      "changepw.confirmpassword.label": "Confirmar contraseÃ±a",
       "changepw.req.length": "{min}-{max} caracteres",
-      "changepw.req.uppercase": "Al menos una letra mayúscula",
-      "changepw.req.number": "Al menos un número",
-      "changepw.req.symbol": "Al menos un carácter especial ( {symbols} )",
-      "changepw.req.consecutive": "No contiene más de {n} caracteres consecutivos de {fields}",
+      "changepw.req.uppercase": "Al menos una letra mayÃºscula",
+      "changepw.req.number": "Al menos un nÃºmero",
+      "changepw.req.symbol": "Al menos un carÃ¡cter especial ( {symbols} )",
+      "changepw.req.consecutive": "No contiene mÃ¡s de {n} caracteres consecutivos de {fields}",
       "changepw.field.firstname": "nombre",
       "changepw.field.lastname": "apellido",
       "changepw.field.username": "nombre de usuario",
-      "changepw.field.email": "correo electrónico",
-      "changepw.strength.label": "Seguridad de la contraseña",
+      "changepw.field.email": "correo electrÃ³nico",
+      "changepw.strength.label": "Seguridad de la contraseÃ±a",
       "changepw.strength.weak": "Pobre",
       "changepw.strength.fair": "Aceptable",
       "changepw.strength.good": "Buena",
       "changepw.strength.strong": "Fuerte",
-      "changepw.error.required": "La nueva contraseña es obligatoria.",
-      "changepw.error.requirements": "Cumpla con todos los requisitos de la contraseña.",
-      "changepw.error.mismatch": "Las contraseñas no coinciden. Inténtelo de nuevo.",
-      "login.error.default": "Nombre de usuario o contraseña incorrectos. Inténtelo de nuevo.",
-      "otp.error.default": "El código introducido es incorrecto. Inténtelo de nuevo.",
-      "forgot.error.default": "Algo salió mal. Inténtelo de nuevo.",
-      "changepw.error.policy": "No se cumple el requisito de la contraseña."
+      "changepw.error.required": "La nueva contraseÃ±a es obligatoria.",
+      "changepw.error.requirements": "Cumpla con todos los requisitos de la contraseÃ±a.",
+      "changepw.error.mismatch": "Las contraseÃ±as no coinciden. IntÃ©ntelo de nuevo."
     },
     fr: {
       "login.page.title": "CONNEXION",
@@ -742,40 +617,36 @@ function getLocale() {
       "email.field.label": "Adresse e-mail",
       "password.field.label": "Mot de passe",
       "password.field.placeholder": "Mot de passe",
-      "forgot.password.link": "Mot de passe oublié",
-      "reset.password": "RÉINITIALISER LE MOT DE PASSE",
-      "reset.password.subtext": "Nous vous enverrons un e-mail contenant des instructions pour le récupérer",
-      "forgot.page.helper": "Vous ne recevez pas d'e-mail pour réinitialiser votre mot de passe ? Alors l'adresse e-mail utilisée ne nous est pas connue. Vous ne trouvez pas ?",
+      "forgot.password.link": "Mot de passe oubliÃ©",
+      "reset.password": "RÃ‰INITIALISER LE MOT DE PASSE",
+      "reset.password.subtext": "Nous vous enverrons un e-mail contenant des instructions pour le rÃ©cupÃ©rer",
+      "forgot.page.helper": "Vous ne recevez pas d'e-mail pour rÃ©initialiser votre mot de passe ? Alors l'adresse e-mail utilisÃ©e ne nous est pas connue. Vous ne trouvez pas ?",
       "forgot.page.helper.link": "Contacter le service client",
       "next.button": "SUIVANT",
-      "otp.page.title": "VÉRIFIEZ VOTRE IDENTITÉ",
+      "otp.page.title": "VÃ‰RIFIEZ VOTRE IDENTITÃ‰",
       "otp.field.label": "Saisissez l'OTP ici",
-      "otp.field.placeholder": "Numéro OTP",
-      "otp.verify.button": "VÉRIFIER",
+      "otp.field.placeholder": "NumÃ©ro OTP",
+      "otp.verify.button": "VÃ‰RIFIER",
       "otp.cancel.button": "ANNULER",
       "changepw.newpassword.label": "Nouveau mot de passe",
       "changepw.confirmpassword.label": "Confirmer le mot de passe",
-      "changepw.req.length": "{min}-{max} caractères",
+      "changepw.req.length": "{min}-{max} caractÃ¨res",
       "changepw.req.uppercase": "Au moins une lettre majuscule",
       "changepw.req.number": "Au moins un chiffre",
-      "changepw.req.symbol": "Au moins un caractère spécial ( {symbols} )",
-      "changepw.req.consecutive": "Ne contient pas plus de {n} caractères consécutifs de {fields}",
-      "changepw.field.firstname": "prénom",
+      "changepw.req.symbol": "Au moins un caractÃ¨re spÃ©cial ( {symbols} )",
+      "changepw.req.consecutive": "Ne contient pas plus de {n} caractÃ¨res consÃ©cutifs de {fields}",
+      "changepw.field.firstname": "prÃ©nom",
       "changepw.field.lastname": "nom de famille",
       "changepw.field.username": "nom d'utilisateur",
       "changepw.field.email": "e-mail",
       "changepw.strength.label": "Force du mot de passe",
-      "changepw.strength.weak": "Médiocre",
+      "changepw.strength.weak": "MÃ©diocre",
       "changepw.strength.fair": "Moyen",
       "changepw.strength.good": "Bon",
       "changepw.strength.strong": "Fort",
       "changepw.error.required": "Le nouveau mot de passe est requis.",
-      "changepw.error.requirements": "Veuillez satisfaire à toutes les exigences du mot de passe.",
-      "changepw.error.mismatch": "Les mots de passe ne correspondent pas. Veuillez réessayer.",
-      "login.error.default": "Nom d'utilisateur ou mot de passe invalide. Veuillez réessayer.",
-      "otp.error.default": "Le code saisi est incorrect. Veuillez réessayer.",
-      "forgot.error.default": "Une erreur s'est produite. Veuillez réessayer.",
-      "changepw.error.policy": "Exigence de mot de passe non respectée."
+      "changepw.error.requirements": "Veuillez satisfaire Ã  toutes les exigences du mot de passe.",
+      "changepw.error.mismatch": "Les mots de passe ne correspondent pas. Veuillez rÃ©essayer."
     },
     nl: {
       "login.page.title": "INLOGGEN",
@@ -793,14 +664,14 @@ function getLocale() {
       "otp.page.title": "VERIFIEER UW IDENTITEIT",
       "otp.field.label": "Voer hier de OTP in",
       "otp.field.placeholder": "OTP-nummer",
-      "otp.verify.button": "VERIFIËREN",
+      "otp.verify.button": "VERIFIÃ‹REN",
       "otp.cancel.button": "ANNULEREN",
       "changepw.newpassword.label": "Nieuw wachtwoord",
       "changepw.confirmpassword.label": "Wachtwoord bevestigen",
       "changepw.req.length": "{min}-{max} tekens",
-      "changepw.req.uppercase": "Minimaal één hoofdletter",
-      "changepw.req.number": "Minimaal één cijfer",
-      "changepw.req.symbol": "Minimaal één speciaal teken ( {symbols} )",
+      "changepw.req.uppercase": "Minimaal Ã©Ã©n hoofdletter",
+      "changepw.req.number": "Minimaal Ã©Ã©n cijfer",
+      "changepw.req.symbol": "Minimaal Ã©Ã©n speciaal teken ( {symbols} )",
       "changepw.req.consecutive": "Bevat niet meer dan {n} opeenvolgende tekens van {fields}",
       "changepw.field.firstname": "voornaam",
       "changepw.field.lastname": "achternaam",
@@ -813,55 +684,43 @@ function getLocale() {
       "changepw.strength.strong": "Sterk",
       "changepw.error.required": "Nieuw wachtwoord is vereist.",
       "changepw.error.requirements": "Voldoe aan alle wachtwoordvereisten.",
-      "changepw.error.mismatch": "De wachtwoorden komen niet overeen. Probeer het opnieuw.",
-      "login.error.default": "Ongeldige gebruikersnaam of wachtwoord. Probeer het opnieuw.",
-      "otp.error.default": "De ingevoerde code is onjuist. Probeer het opnieuw.",
-      "forgot.error.default": "Er is iets misgegaan. Probeer het opnieuw.",
-      "changepw.error.policy": "Wachtwoordvereiste niet voldaan."
+      "changepw.error.mismatch": "De wachtwoorden komen niet overeen. Probeer het opnieuw."
     }
   };
 
-function tr(key) {
-    var locale = getLocale();
+  function tr(key) {
+    var locale = localStorage.getItem("mo_locale") || "en";
     var dict = TRANSLATIONS[locale] || TRANSLATIONS.en;
-
-    if (dict[key] != null) return dict[key];
-    if (TRANSLATIONS.en[key] != null) return TRANSLATIONS.en[key];
+    if (dict && dict[key] != null) return dict[key];
+    if (TRANSLATIONS.en && TRANSLATIONS.en[key] != null) return TRANSLATIONS.en[key];
     return key;
-}
+  }
 
-  /* ── STEP 1: Email page UI ── */
+  /* â”€â”€ STEP 1: Email page UI â”€â”€ */
   function applyEmailStep() {
     var wrapper = document.getElementById("login-wrapper");
     if (!wrapper) return;
 
-    /* LOG IN title — insert once before any form child */
+    /* LOG IN title â€” insert once before any form child */
     if (!document.getElementById("mo-title")) {
       var t = document.createElement("span");
-      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = hasExplicitLocaleParam() ? tr("login.page.title") : getServerHeaderText();
+      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = tr("login.page.title");
       wrapper.insertBefore(t, wrapper.firstChild);
     }
 
-    /* Email label above the username input. Overwritten with tr() only when
-       this page's URL explicitly asked for a locale; otherwise we reuse the
-       field's own server-rendered placeholder text and leave the
-       placeholder attribute alone (see hasExplicitLocaleParam above). */
+    /* Email label above the username input */
     var userDiv = document.getElementById("userName");
     if (userDiv && !document.getElementById("mo-email-lbl")) {
-      var inp = document.getElementById("username");
-      var emailLblText = hasExplicitLocaleParam()
-        ? tr("email.field.label")
-        : (inp ? (inp.getAttribute("placeholder") || "") : "");
-      document.body.dataset.moEmailLblText = emailLblText;
       var fg = document.createElement("div"); fg.className = "mo-fg";
       var lbl = document.createElement("label");
       lbl.id = "mo-email-lbl"; lbl.className = "mo-lbl";
       lbl.setAttribute("for", "username");
-      lbl.innerHTML = emailLblText + ' <span class="mo-req">*</span>';
+      lbl.innerHTML = tr("email.field.label") + ' <span class="mo-req">*</span>';
       fg.appendChild(lbl);
       userDiv.parentNode.insertBefore(fg, userDiv);
       fg.appendChild(userDiv);
-      if (inp && hasExplicitLocaleParam()) inp.setAttribute("placeholder", tr("email.field.placeholder"));
+      var inp = document.getElementById("username");
+      if (inp) inp.setAttribute("placeholder", tr("email.field.placeholder"));
     }
 
  
@@ -877,10 +736,7 @@ function tr(key) {
     var unameEl = document.getElementById("username");
     if (isPageHasError && !document.getElementById("mo-userlogin-error") && !(unameEl && unameEl.dataset.moUserErrDismissed)) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message only when this page's URL explicitly
-         asked for a locale; otherwise trust the backend's own (possibly
-         session-localized) error text. */
-      var message = hasExplicitLocaleParam() ? tr("login.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
+      var message = $('#error-alert-message .errorMessage li span').text().trim();
       $('#userName').after(
         '<div id="mo-userlogin-error" class="error-message text-start" style="color:red;">' + message + '</div>'
       );
@@ -916,7 +772,7 @@ function tr(key) {
     });
   }
 
-  /* ── STEP 2: Password page UI ── */
+  /* â”€â”€ STEP 2: Password page UI â”€â”€ */
   function applyPasswordStep() {
     var pwField = document.getElementById("plaintextPassword");
     if (!pwField) return;                          // not the password step yet
@@ -935,11 +791,11 @@ function tr(key) {
       if (emailFg) emailFg.style.setProperty("display", "none", "important");
     }
 
-    /* LOG IN title — insert once before any form child */
+    /* LOG IN title â€” insert once before any form child */
     var wrapper = document.getElementById("login-wrapper");
     if (wrapper && !document.getElementById("mo-title")) {
       var t = document.createElement("span");
-      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = hasExplicitLocaleParam() ? tr("login.page.title") : getServerHeaderText();
+      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = tr("login.page.title");
       wrapper.insertBefore(t, wrapper.firstChild);
     }
 
@@ -949,15 +805,11 @@ function tr(key) {
 
     if (document.getElementById("mo-pw-lbl")) return; // already applied
 
-    /* Password label above #plaintextPassword. Overwritten with tr() only
-       when this page's URL explicitly asked for a locale; otherwise reuse
-       the field's own server-rendered placeholder text. */
-    var pwPlaceholder = pwField.getAttribute("placeholder") || "";
+    /* Password label above #plaintextPassword */
     var pwLbl = document.createElement("label");
     pwLbl.id = "mo-pw-lbl"; pwLbl.className = "mo-lbl";
     pwLbl.setAttribute("for", "plaintextPassword");
-    var pwLblText = hasExplicitLocaleParam() ? tr("password.field.label") : pwPlaceholder;
-    pwLbl.innerHTML = pwLblText + ' <span class="mo-req">*</span>';
+    pwLbl.innerHTML = tr("password.field.label") + ' <span class="mo-req">*</span>';
     pwField.parentNode.insertBefore(pwLbl, pwField);
 
     /* Show read-only username above password field */
@@ -969,9 +821,7 @@ function tr(key) {
       if (usernameVal) {
         var userFg = document.createElement("div"); userFg.className = "mo-fg";
         var userLbl = document.createElement("label"); userLbl.className = "mo-lbl";
-        userLbl.textContent = hasExplicitLocaleParam()
-          ? tr("email.field.label")
-          : (document.body.dataset.moEmailLblText || (unInp ? (unInp.getAttribute("placeholder") || "") : ""));
+        userLbl.textContent = tr("email.field.label");
         var userBox = document.createElement("div"); userBox.id = "mo-user-display";
         userBox.className = "mo-user-display";
         userBox.textContent = usernameVal;
@@ -985,10 +835,7 @@ function tr(key) {
     var isPageHasError = errorOnPage();
     if(isPageHasError && !document.getElementById("mo-pw-error")) {
       console.log('IN ERROR SECTION ')
-      /* Show our own translated message only when this page's URL explicitly
-         asked for a locale; otherwise trust the backend's own (possibly
-         session-localized) error text. */
-      var message = hasExplicitLocaleParam() ? tr("login.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
+      var message = $('#error-alert-message .errorMessage li span').text().trim();
       $('#mo-user-display').after(
         '<div id="mo-pw-error" class="error-message text-start" style="color:red;">' + message + '</div>'
       );
@@ -1012,7 +859,7 @@ function tr(key) {
     var wrap = document.createElement("div"); wrap.className = "mo-pw-wrap";
     pwField.parentNode.insertBefore(wrap, pwField);
     wrap.appendChild(pwField);
-    if (hasExplicitLocaleParam()) pwField.setAttribute("placeholder", tr("password.field.placeholder"));
+    pwField.setAttribute("placeholder", tr("password.field.placeholder"));
 
     /* Eye toggle button */
     var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -1042,7 +889,7 @@ function tr(key) {
     }
 
     /* Clear all login error indicators once the user edits the password
-       (message, red borders, and both cross icons) — like the reset page. */
+       (message, red borders, and both cross icons) â€” like the reset page. */
     if (!pwField.dataset.moLoginClear) {
       pwField.dataset.moLoginClear = "true";
       pwField.addEventListener("input", function () {
@@ -1057,21 +904,21 @@ function tr(key) {
     if (!document.getElementById("mo-bottom")) {
       var row = document.createElement("div"); row.id = "mo-bottom";
       var fl = document.createElement("a"); fl.id = "mo-forgot";
-      fl.href = "/moas/idp/resetpassword"; fl.textContent = hasExplicitLocaleParam() ? tr("forgot.password.link") : getForgotLinkText();
+      fl.href = "/moas/idp/resetpassword"; fl.textContent = tr("forgot.password.link");
       row.appendChild(fl);
       wrap.parentNode.insertBefore(row, wrap.nextSibling);
     }
   }
 
-  /* ── Force-hide specific elements that jQuery's showAdminPassword() re-shows ── */
+  /* â”€â”€ Force-hide specific elements that jQuery's showAdminPassword() re-shows â”€â”€ */
   function forceHide() {
-    /* Hide by ID — only the element itself, never its parent */
+    /* Hide by ID â€” only the element itself, never its parent */
     ["dynamicUserName", "goBack"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.style.setProperty("display", "none", "important");
     });
 
-    /* Hide "Sign in with another account" links only — check the link's OWN text, not children */
+    /* Hide "Sign in with another account" links only â€” check the link's OWN text, not children */
     document.querySelectorAll("a").forEach(function (a) {
       var txt = "";
       a.childNodes.forEach(function (n) { if (n.nodeType === 3) txt += n.nodeValue; });
@@ -1089,7 +936,7 @@ function tr(key) {
 
 
 
-  /* ── LOGIN ERROR HANDLER ── */
+  /* â”€â”€ LOGIN ERROR HANDLER â”€â”€ */
   function handleLoginErrors() {
     var feedbackEl = document.getElementById("feedback-msg");
     var userErrorEl = document.getElementById("username-error");
@@ -1183,18 +1030,18 @@ function tr(key) {
     }
   }
 
-  /* ── COMBINED EMAIL + PASSWORD STEP (redirecttoidplogin) ── */
+  /* â”€â”€ COMBINED EMAIL + PASSWORD STEP (redirecttoidplogin) â”€â”€ */
   /* On this page both the email and password fields are visible at once,
-     so we style both together — no two-step toggle and no read-only
+     so we style both together â€” no two-step toggle and no read-only
      username box (the email field stays editable). */
   function applyEmailPasswordStep() {
     var wrapper = document.getElementById("login-wrapper");
     if (!wrapper) return;
 
-    /* LOG IN title — insert once before any form child */
+    /* LOG IN title â€” insert once before any form child */
     if (!document.getElementById("mo-title")) {
       var t = document.createElement("span");
-      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = hasExplicitLocaleParam() ? tr("login.page.title") : getServerHeaderText();
+      t.id = "mo-title"; t.className = "px-2 mx-1"; t.textContent = tr("login.page.title");
       wrapper.insertBefore(t, wrapper.firstChild);
     }
 
@@ -1205,15 +1052,11 @@ function tr(key) {
     /* Email label + placeholder */
     var userDiv = document.getElementById("userName");
     if (userDiv && !document.getElementById("mo-email-lbl")) {
-      var emailInpForLbl = document.getElementById("username");
-      var emailLblText2 = hasExplicitLocaleParam()
-        ? tr("email.field.label")
-        : (emailInpForLbl ? (emailInpForLbl.getAttribute("placeholder") || "") : "");
       var fg = document.createElement("div"); fg.className = "mo-fg";
       var lbl = document.createElement("label");
       lbl.id = "mo-email-lbl"; lbl.className = "mo-lbl";
       lbl.setAttribute("for", "username");
-      lbl.innerHTML = emailLblText2 + ' <span class="mo-req">*</span>';
+      lbl.innerHTML = tr("email.field.label") + ' <span class="mo-req">*</span>';
       fg.appendChild(lbl);
       userDiv.parentNode.insertBefore(fg, userDiv);
       fg.appendChild(userDiv);
@@ -1222,20 +1065,18 @@ function tr(key) {
     var userNameDiv = document.getElementById("userName");
     if (userNameDiv) userNameDiv.removeAttribute("id");
     var emailInp = document.getElementById("username");
-    if (emailInp && hasExplicitLocaleParam()) emailInp.setAttribute("placeholder", tr("email.field.placeholder"));
+    if (emailInp) emailInp.setAttribute("placeholder", tr("email.field.placeholder"));
 
     /* Password label + eye toggle + placeholder */
     var pwField = document.getElementById("plaintextPassword");
     if (pwField) {
-      var pwPlaceholder2 = pwField.getAttribute("placeholder") || "";
-      if (hasExplicitLocaleParam()) pwField.setAttribute("placeholder", tr("password.field.placeholder"));
+      pwField.setAttribute("placeholder", tr("password.field.placeholder"));
 
       if (!document.getElementById("mo-pw-lbl")) {
         var pwLbl = document.createElement("label");
         pwLbl.id = "mo-pw-lbl"; pwLbl.className = "mo-lbl";
         pwLbl.setAttribute("for", "plaintextPassword");
-        var pwLblText2 = hasExplicitLocaleParam() ? tr("password.field.label") : pwPlaceholder2;
-        pwLbl.innerHTML = pwLblText2 + ' <span class="mo-req">*</span>';
+        pwLbl.innerHTML = tr("password.field.label") + ' <span class="mo-req">*</span>';
         pwField.parentNode.insertBefore(pwLbl, pwField);
       }
 
@@ -1262,7 +1103,7 @@ function tr(key) {
         if (!document.getElementById("mo-bottom")) {
           var row = document.createElement("div"); row.id = "mo-bottom";
           var fl = document.createElement("a"); fl.id = "mo-forgot";
-          fl.href = "/moas/idp/resetpassword"; fl.textContent = hasExplicitLocaleParam() ? tr("forgot.password.link") : getForgotLinkText();
+          fl.href = "/moas/idp/resetpassword"; fl.textContent = tr("forgot.password.link");
           row.appendChild(fl);
           wrap.parentNode.insertBefore(row, wrap.nextSibling);
         }
@@ -1279,8 +1120,8 @@ function tr(key) {
     wrapper.querySelectorAll("hr,br").forEach(function (el) { el.style.display = "none"; });
   }
 
-  /* ── Redirect to IDP login PAGE (/moas/redirecttoidplogin) ── */
-  /* Same styling/behaviour as the /moas/login page — reuses the shared
+  /* â”€â”€ Redirect to IDP login PAGE (/moas/redirecttoidplogin) â”€â”€ */
+  /* Same styling/behaviour as the /moas/login page â€” reuses the shared
      CSS injection. Uses the combined step (both fields shown at once). */
   function applyRedirectToIdpLogin() {
     console.log('in apply redirecto idplogin')
@@ -1292,15 +1133,12 @@ function tr(key) {
     forceHide();
 
     /* Server-rendered error banner -> show below the password field.
-       Guarded by #mo-redirect-error so it runs ONCE — otherwise the DOM
+       Guarded by #mo-redirect-error so it runs ONCE â€” otherwise the DOM
        mutations below keep re-triggering the observer (infinite loop). */
     var isPageHasError = errorOnPage();
     if (isPageHasError && !document.getElementById("mo-redirect-error")) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message only when this page's URL explicitly
-         asked for a locale; otherwise trust the backend's own (possibly
-         session-localized) error text. */
-      var message = hasExplicitLocaleParam() ? tr("login.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
+      var message = $('#error-alert-message .errorMessage li span').text().trim();
       var errHtml = '<div id="mo-redirect-error" class="error-message text-start" style="color:red;">' + message + '</div>';
       if ($('.mo-pw-wrap').length) {
         $('.mo-pw-wrap').after(errHtml);
@@ -1364,7 +1202,7 @@ function tr(key) {
       $('#error-alert-message').hide();
     }
 
-    /* Hide original forgot/create link wrappers — skip our custom #mo-forgot */
+    /* Hide original forgot/create link wrappers â€” skip our custom #mo-forgot */
     document.querySelectorAll("a[href*='forgotpassword'],a[href*='resetpassword'],a[href*='businessfreetrial']").forEach(function (a) {
       if (a.id === "mo-forgot") return;
       var c = a.closest(".col-auto");
@@ -1378,7 +1216,7 @@ function tr(key) {
     $('body').addClass('h-100 align-items-center');
   }
 
-  /* ── FORGOT PASSWORD PAGE (/moas/idp/forgotpassword) ── */
+  /* â”€â”€ FORGOT PASSWORD PAGE (/moas/idp/forgotpassword) â”€â”€ */
   function applyForgotPage() {
     if (!checkIsForgot()) return;
 
@@ -1386,13 +1224,7 @@ function tr(key) {
     var emailInput = document.getElementById("emailAddress") || document.getElementById("username");
     if (!emailInput) return; // not ready yet
 
-    /* resetpassword endpoint: strip all <br> spacers (runs every tick to
-       catch any re-added by React). */
-    if (window.location.pathname.toLowerCase().indexOf("moas/idp/resetpassword") !== -1) {
-      $('br').remove();
-    }
-
-    /* ── CSS injection (once) ── */
+    /* â”€â”€ CSS injection (once) â”€â”€ */
     if (!document.getElementById("mo-fp-css")) {
       var fpCss =
         /* Page background */
@@ -1428,7 +1260,7 @@ function tr(key) {
         "margin-top:0!important;margin-bottom:0!important;" +
         "display:block!important;float:none!important;" +
         "position:relative!important;left:auto!important;right:auto!important;" +
-        "padding:20px 10px!important;box-sizing:border-box!important;" +
+        "padding:36px 40px 32px!important;box-sizing:border-box!important;" +
         "height:auto!important;min-height:unset!important;align-self:center!important;" +
         "}" +
 
@@ -1453,7 +1285,7 @@ function tr(key) {
         "color:#0d1b2a;margin-bottom:6px;letter-spacing:-.3px;text-align:left!important;}" +
 
         /* Subtitle */
-        "#mo-fp-subtitle{display:block;font-size:14px;color:#6b7a8d;font-family:'Figtree',sans-serif;margin-bottom:12px;text-align:left!important;}" +
+        "#mo-fp-subtitle{display:block;font-size:14px;color:#6b7a8d;font-family:'Figtree',sans-serif;margin-bottom:20px;text-align:left!important;}" +
 
         /* Label */
         "#mo-fp-lbl{" +
@@ -1483,15 +1315,11 @@ function tr(key) {
         "width:100%!important;max-width:100%!important;padding:0!important;margin:0!important;" +
         "display:block!important;" +
         "}" +
-        /* resetpassword endpoint: restore horizontal padding on the field
-           container (JS adds .px-2 there only, so this is scoped to it and
-           out-specifies the padding:0 rule above via the extra class). */
-        "#userform .w-75.px-2{padding-left:.5rem!important;padding-right:.5rem!important;}" +
 
         /* Helper text */
         "#mo-fp-helper{font-size:13px;color:#6b7a8d;font-family:'Figtree',sans-serif;" +
         "margin:14px 0 18px;line-height:1.5;text-align:left!important;width:100%!important;padding-left:0;padding-right:0;}" +
-        "#mo-fp-helper a{display:block;margin-top:4px;color:#0A55D7;text-decoration:none;font-weight:500;}" +
+        "#mo-fp-helper a{color:#0A55D7;text-decoration:none;font-weight:500;}" +
         "#mo-fp-helper a:hover{text-decoration:underline;}" +
 
         /* NEXT button */
@@ -1503,7 +1331,7 @@ function tr(key) {
         "border:none!important;color:#fff!important;font-family:'Figtree',sans-serif!important;" +
         "font-size:14px!important;font-weight:700!important;letter-spacing:.6px!important;" +
         "text-transform:uppercase!important;cursor:pointer!important;box-shadow:none!important;" +
-        "width:auto!important;margin:0 auto 0 0!important;align-self:flex-start!important;" +
+        "width:auto!important;margin:10px auto 10px 0!important;align-self:flex-start!important;" +
         "padding-right:46px!important;background-image:" + MO_ARROW_BG + "!important;" +
         "background-repeat:no-repeat!important;background-position:right 18px center!important;background-size:15px 15px!important;" +
         "}" +
@@ -1520,7 +1348,7 @@ function tr(key) {
       document.head.appendChild(fpSt);
     }
 
-    /* ── JS force-hide (runs every call — beats React re-renders & inline styles) ── */
+    /* â”€â”€ JS force-hide (runs every call â€” beats React re-renders & inline styles) â”€â”€ */
     /* Logo row */
     document.querySelectorAll("div.w-100.d-flex").forEach(function (el) {
       if (el.classList.contains("justify-content-between") && el.classList.contains("align-items-start")) {
@@ -1544,66 +1372,40 @@ function tr(key) {
       el.style.setProperty("display", "none", "important");
     });
 
-    /* ── DOM injection — only once ── */
+    /* â”€â”€ DOM injection â€” only once â”€â”€ */
     if (document.getElementById("mo-forgot-done")) return;
 
     /* Find the form element */
     var fpForm = emailInput.closest("form");
     if (!fpForm) return;
 
-    /* Insert title + subtitle before the form. Overwritten with tr() only
-       when this page's URL explicitly asked for a locale; otherwise reuse
-       the text of the server-rendered (now hidden) h4 heading and
-       .text-muted subtext. */
+    /* Insert RESET PASSWORD title + subtitle before the form */
     if (!document.getElementById("mo-fp-title")) {
       var fpTitle = document.createElement("span");
-      fpTitle.id = "mo-fp-title";
-      fpTitle.textContent = hasExplicitLocaleParam()
-        ? tr("reset.password")
-        : (serverText(document.querySelector("h4")) || getServerHeaderText());
+      fpTitle.id = "mo-fp-title"; fpTitle.textContent = tr("reset.password");
       fpForm.parentNode.insertBefore(fpTitle, fpForm);
 
       var fpSub = document.createElement("span");
       fpSub.id = "mo-fp-subtitle";
-      fpSub.textContent = hasExplicitLocaleParam()
-        ? tr("reset.password.subtext")
-        : serverText(document.querySelector("p.text-muted"));
+      fpSub.textContent = tr("reset.password.subtext");
       fpForm.parentNode.insertBefore(fpSub, fpForm);
     }
 
-    /* resetpassword endpoint only: add horizontal padding (px-2) to the
-       title, subtitle and the field container div. classList.add is a no-op
-       when the class is already present, so this is observer-loop safe. */
-    if (window.location.pathname.toLowerCase().indexOf("moas/idp/resetpassword") !== -1) {
-      var rpTitle = document.getElementById("mo-fp-title");
-      if (rpTitle) rpTitle.classList.add("px-2");
-      var rpSub = document.getElementById("mo-fp-subtitle");
-      if (rpSub) rpSub.classList.add("px-2");
-      var rpBody = document.querySelector("#userform .w-75.px-4");
-      if (rpBody) rpBody.classList.add("px-2");
-    }
-
-    /* Replace/create label text. Overwritten with tr() only when this
-       page's URL explicitly asked for a locale; otherwise reuse an existing
-       server label's own text, or the input's own placeholder text. */
+    /* Replace/create label text */
     var origLabel = fpForm.querySelector("label[for='emailAddress']") || fpForm.querySelector("label[for='username']") || document.getElementById("mo-fp-lbl");
     if (!origLabel) {
-      var fpPlaceholder = emailInput.getAttribute("placeholder") || "";
       origLabel = document.createElement("label");
       origLabel.setAttribute("for", emailInput.id);
       origLabel.id = "mo-fp-lbl";
-      var fpLblText = hasExplicitLocaleParam() ? tr("email.field.label") : fpPlaceholder;
-      origLabel.innerHTML = fpLblText + ' <span class="mo-req">*</span>';
+      origLabel.innerHTML = tr("email.field.label") + ' <span class="mo-req">*</span>';
       emailInput.parentNode.insertBefore(origLabel, emailInput);
     } else if (origLabel.id !== "mo-fp-lbl") {
-      var origLabelText = origLabel.textContent.trim();
       origLabel.id = "mo-fp-lbl"; origLabel.className = "";
-      var fpLblText2 = hasExplicitLocaleParam() ? tr("email.field.label") : origLabelText;
-      origLabel.innerHTML = fpLblText2 + ' <span class="mo-req">*</span>';
+      origLabel.innerHTML = tr("email.field.label") + ' <span class="mo-req">*</span>';
     }
 
-    /* Fix input placeholder only when explicitly asked for a locale */
-    if (hasExplicitLocaleParam()) emailInput.setAttribute("placeholder", tr("email.field.placeholder"));
+    /* Fix input placeholder */
+    emailInput.setAttribute("placeholder", tr("email.field.placeholder"));
 
     /* Insert helper text after the input wrapper (once) */
     if (!document.getElementById("mo-fp-helper")) {
@@ -1618,7 +1420,7 @@ function tr(key) {
       }
     }
 
-    /* Change button text to NEXT → */
+    /* Change button text to NEXT â†’ */
     var fpBtn = fpForm.querySelector("button") || fpForm.querySelector("input[type='submit']");
     setBtnArrowLabel(fpBtn, tr("next.button"));
 
@@ -1645,10 +1447,7 @@ function tr(key) {
       $(emailInput).removeClass("border border-danger mo-input-error");
     } else if (fpHasError && !document.getElementById("mo-fp-error")) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message only when this page's URL explicitly
-         asked for a locale; otherwise trust the backend's own (possibly
-         session-localized) error text. */
-      var fpMessage = hasExplicitLocaleParam() ? tr("forgot.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
+      var fpMessage = $('#error-alert-message .errorMessage li span').text().trim();
       /* Wrap ONLY the input in a relative flex container for the cross icon */
       if (!emailInput.parentNode.classList.contains("mo-fp-inputwrap")) {
         var fpIw = document.createElement("div");
@@ -1687,11 +1486,11 @@ function tr(key) {
     $('#go-back-link').parent().hide();
   }
 
-  /* ── OTP VERIFY PAGE (/moas/idp/validatenextfactor) ── */
+  /* â”€â”€ OTP VERIFY PAGE (/moas/idp/validatenextfactor) â”€â”€ */
   function applyOtpPage() {
     if (!checkIsOtp()) return;
 
-    /* CSS — inject once */
+    /* CSS â€” inject once */
     if (!document.getElementById("mo-otp-css")) {
       var otpCss =
         /* Page: remove grey overlay, set brand bg */
@@ -1761,14 +1560,14 @@ function tr(key) {
 
     /* Idempotent UI bits below run on EVERY call (incl. observer ticks after
        the AJAX "resend OTP", which re-renders the OTP subtree without a page
-       reload) — each block is guarded so it neither duplicates nor stacks. */
+       reload) â€” each block is guarded so it neither duplicates nor stacks. */
     var otpInput = document.getElementById("otpToken");
     if (!otpInput) return;
 
-    /* VERIFY YOUR IDENTITY title. Overwritten with tr() only when this
-       page's URL explicitly asked for a locale; otherwise reuse whatever
-       text .login-header (shared across templates) or modalHeader itself
-       already carries server-side. */
+    /* VERIFY YOUR IDENTITY title â€” re-sync on every tick (don't freeze). The
+       first tick can run before mo_locale settles (script imported early in the
+       JSP), so tr() may return English; a later tick must be able to correct it.
+       Compare before writing so a matched value doesn't retrigger the observer. */
     var modalHeader = document.getElementById("modal-header-main");
     if (modalHeader) {
       var otpTitle = document.getElementById("mo-otp-title");
@@ -1777,38 +1576,34 @@ function tr(key) {
         otpTitle.id = "mo-otp-title";
         modalHeader.insertBefore(otpTitle, modalHeader.firstChild);
       }
-      var otpTitleTxt = hasExplicitLocaleParam()
-        ? tr("otp.page.title")
-        : (getServerHeaderText() || serverText(modalHeader));
+      var otpTitleTxt = tr("otp.page.title");
       if (otpTitle.textContent !== otpTitleTxt) otpTitle.textContent = otpTitleTxt;
     }
 
-    /* Label above OTP input — reuse a server-rendered label[for=otpToken]
-       if present, otherwise create one right before the input. Overwritten
-       with tr() only when this page's URL explicitly asked for a locale;
-       otherwise the existing label text (or the input's own placeholder
-       text, if we have to create the label ourselves) is kept as-is. */
+    /* Label above OTP input â€” reuse a server-rendered label[for=otpToken]
+       if present, otherwise create one right before the input. Works whether
+       or not the page ships its own label. */
     var otpLbl = document.getElementById("mo-otp-lbl") || otpInput.parentNode.querySelector('label[for="otpToken"]');
     if (!otpLbl) {
-      var otpPlaceholderText = otpInput.getAttribute("placeholder") || "";
       otpLbl = document.createElement("label");
-      otpLbl.id = "mo-otp-lbl";
       otpLbl.setAttribute("for", "otpToken");
-      var otpInitialText = hasExplicitLocaleParam() ? tr("otp.field.label") : otpPlaceholderText;
-      otpLbl.innerHTML = otpInitialText + ' <span class="mo-req">*</span>';
       otpInput.parentNode.insertBefore(otpLbl, otpInput);
-    } else if (otpLbl.id !== "mo-otp-lbl" && !otpLbl.querySelector(".mo-req")) {
-      var otpExistingText = otpLbl.textContent.trim();
-      var otpLblText = hasExplicitLocaleParam() ? tr("otp.field.label") : otpExistingText;
-      otpLbl.id = "mo-otp-lbl";
-      otpLbl.innerHTML = otpLblText + ' <span class="mo-req">*</span>';
+    }
+    if (otpLbl.id !== "mo-otp-lbl") otpLbl.id = "mo-otp-lbl";
+    /* Re-sync on every tick like the title. Compare against the target first so
+       we only touch innerHTML when the locale actually changed \u2014 otherwise the
+       childList mutation retriggers the observer and loops infinitely. */
+    var otpLblHtml = tr("otp.field.label") + ' <span class="mo-req">*</span>';
+    if (otpLbl.innerHTML !== otpLblHtml) {
+      otpLbl.innerHTML = otpLblHtml;
+      otpLbl.dataset.moLocalized = "1";
     }
 
     /* Form padding (jQuery no-ops when classes already match, so no loop) */
     $('#validateIdentityForm').removeClass('p-4').addClass('p-0');
 
-    /* Placeholder overwritten only when explicitly asked for a locale */
-    if (hasExplicitLocaleParam() && otpInput.getAttribute("placeholder") !== tr("otp.field.placeholder")) {
+    /* Placeholder (attribute not observed) */
+    if (otpInput.getAttribute("placeholder") !== tr("otp.field.placeholder")) {
       otpInput.setAttribute("placeholder", tr("otp.field.placeholder"));
     }
 
@@ -1816,9 +1611,9 @@ function tr(key) {
     var verifyBtn = document.getElementById("validate");
     setBtnArrowLabel(verifyBtn, tr("otp.verify.button"));
 
-    /* Cancel button — text overwritten only when explicitly asked for a locale */
+    /* Cancel button */
     var cancelBtn = document.querySelector(".btn-cancel");
-    if (hasExplicitLocaleParam() && cancelBtn && cancelBtn.textContent !== tr("otp.cancel.button")) {
+    if (cancelBtn && cancelBtn.textContent !== tr("otp.cancel.button")) {
       cancelBtn.textContent = tr("otp.cancel.button");
     }
     /* Redirect Cancel to the broker login instead of submitting the
@@ -1833,7 +1628,7 @@ function tr(key) {
     }
 
     /* Backend typo fix in the OTP success message: "...to Validate." -> "...to validate."
-       English only — detected via the "Please enter the OTP" phrase. Idempotent:
+       English only â€” detected via the "Please enter the OTP" phrase. Idempotent:
        only rewrites when the capitalised "Validate" is still present. */
     var otpSuccessSpan = document.querySelector("#success-alert-message .actionMessage li span");
     if (otpSuccessSpan) {
@@ -1843,7 +1638,7 @@ function tr(key) {
       }
     }
 
-    /* ── One-time-only below (server error handling + done marker) ── */
+    /* â”€â”€ One-time-only below (server error handling + done marker) â”€â”€ */
     if (document.getElementById("mo-otp-done")) return;
 
     /* Mark done */
@@ -1854,10 +1649,7 @@ function tr(key) {
     var isPageHasError = errorOnPage();
     if (isPageHasError) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message only when this page's URL explicitly
-         asked for a locale; otherwise trust the backend's own (possibly
-         session-localized) error text. */
-      var message = hasExplicitLocaleParam() ? tr("otp.error.default") : $('#error-alert-message .errorMessage li span').text().trim();
+      var message = $('#error-alert-message .errorMessage li span').text().trim();
       $('#otpToken').after(
         '<div id="mo-userlogin-error" class="error-message text-start" style="color:red;">' + message + '</div>'
       );
@@ -1892,13 +1684,13 @@ function tr(key) {
 
   }
 
-  /* ── CHANGE PASSWORD PAGE (/moas/idp/changepassword) ── */
+  /* â”€â”€ CHANGE PASSWORD PAGE (/moas/idp/changepassword) â”€â”€ */
   function applyChangePasswordPage() {
     if (!checkIsChangePass()) return;
     $('.col-xs-8.col-xs-offset-2').addClass('text-start');
     $('.form-group').addClass('text-start');
     $('br').remove();
-    /* CSS — inject once */
+    /* CSS â€” inject once */
     if (!document.getElementById("mo-cp-css")) {
       var cpCss =
         /* Page bg */
@@ -1909,7 +1701,7 @@ function tr(key) {
         "#login-wrapper{" +
         "background:#fff!important;border:1px solid #e0e7ef!important;" +
         "border-radius:4px!important;box-shadow:0 2px 12px rgba(0,0,0,.08)!important;" +
-        "padding:20px 10px!important;max-width:560px!important;width:100%!important;" +
+        "padding:36px 40px 32px!important;max-width:560px!important;width:100%!important;" +
         "margin:40px auto!important;box-sizing:border-box!important;" +
         "}" +
 
@@ -1999,43 +1791,32 @@ function tr(key) {
     var newPasswordInput = document.getElementById("newPassword") || fpForm.querySelector("input[name='password']");
     var confirmPasswordInput = document.getElementById("confirmPassword") || fpForm.querySelector("input[name='confirmPassword']");
 
-    /* Update title to RESET PASSWORD only when this page's URL explicitly
-       asked for a locale; otherwise leave the server's own heading alone. */
-    if (hasExplicitLocaleParam()) {
-      var h3 = document.querySelector(".login-header");
-      if (h3) {
-        var titleTextNode = null;
-        for (var i = 0; i < h3.childNodes.length; i++) {
-          var node = h3.childNodes[i];
-          if (node.nodeType === 3) {
-            titleTextNode = node;
-            break;
-          }
+    /* Update title to RESET PASSWORD with close x button */
+    var h3 = document.querySelector(".login-header");
+    if (h3) {
+      var titleTextNode = null;
+      for (var i = 0; i < h3.childNodes.length; i++) {
+        var node = h3.childNodes[i];
+        if (node.nodeType === 3) {
+          titleTextNode = node;
+          break;
         }
-        if (titleTextNode) {
-          titleTextNode.nodeValue = tr("reset.password");
-        } else {
-          h3.insertBefore(document.createTextNode(tr("reset.password")), h3.firstChild);
-        }
+      }
+      if (titleTextNode) {
+        titleTextNode.nodeValue = tr("reset.password");
+      } else {
+        h3.insertBefore(document.createTextNode(tr("reset.password")), h3.firstChild);
       }
     }
 
-    /* Add * to labels. Overwritten with tr() only when this page's URL
-       explicitly asked for a locale; otherwise keep the server's own label
-       text and only append the required-marker span.
-       NOTE: detection here still matches on the English phrases "new
-       password"/"confirm password", so on a fully localized page (in the
-       non-explicit branch) the marker may not attach — that's a
-       pre-existing limitation of this detection, not something we changed. */
+    /* Add * to labels */
     var labelSelector = "#passwordform p.text-left, #userform span.align-items-left, #userform span.d-flex";
     document.querySelectorAll(labelSelector).forEach(function (p) {
       var t = p.textContent.trim();
       if (t.toLowerCase().indexOf("new password") !== -1 && !p.querySelector(".mo-req")) {
-        var npText = hasExplicitLocaleParam() ? tr("changepw.newpassword.label") : t;
-        p.innerHTML = npText + ' <span class="mo-req" style="color:#e02020; margin-left:2px;">*</span>';
+        p.innerHTML = tr("changepw.newpassword.label") + ' <span class="mo-req" style="color:#e02020; margin-left:2px;">*</span>';
       } else if (t.toLowerCase().indexOf("confirm password") !== -1 && !p.querySelector(".mo-req")) {
-        var cpText = hasExplicitLocaleParam() ? tr("changepw.confirmpassword.label") : t;
-        p.innerHTML = cpText + ' <span class="mo-req" style="color:#e02020; margin-left:2px;">*</span>';
+        p.innerHTML = tr("changepw.confirmpassword.label") + ' <span class="mo-req" style="color:#e02020; margin-left:2px;">*</span>';
       }
     });
 
@@ -2082,7 +1863,7 @@ function tr(key) {
       wrap.className = "mo-pw-wrap";
       newPasswordInput.parentNode.insertBefore(wrap, newPasswordInput);
       wrap.appendChild(newPasswordInput);
-      if (hasExplicitLocaleParam()) newPasswordInput.setAttribute("placeholder", tr("password.field.placeholder"));
+      newPasswordInput.setAttribute("placeholder", tr("password.field.placeholder"));
 
       // Append eye toggle
       var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -2105,7 +1886,7 @@ function tr(key) {
       wrap.className = "mo-pw-wrap";
       confirmPasswordInput.parentNode.insertBefore(wrap, confirmPasswordInput);
       wrap.appendChild(confirmPasswordInput);
-      if (hasExplicitLocaleParam()) confirmPasswordInput.setAttribute("placeholder", tr("password.field.placeholder"));
+      confirmPasswordInput.setAttribute("placeholder", tr("password.field.placeholder"));
 
       // Append eye toggle
       var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -2134,7 +1915,7 @@ function tr(key) {
       errorText.style.marginBottom = "8px";
       errorText.style.display = "none";
 
-      // Helper text — rendered as a bulleted requirements list
+      // Helper text â€” rendered as a bulleted requirements list
       var helper = document.createElement("ul");
       helper.id = "mo-cp-helper-text";
       helper.style.fontFamily = "'Figtree', sans-serif";
@@ -2286,18 +2067,18 @@ function tr(key) {
         if (!(key in checks)) state = "dot";      /* name/email -> plain dot */
         else if (!val) state = "empty";           /* empty field -> no marker */
         else state = checks[key] ? "ok" : "bad";
-        /* Only touch the DOM when the state actually changes — otherwise the
+        /* Only touch the DOM when the state actually changes â€” otherwise the
            textContent/style writes retrigger the observer and loop. */
         if (marker.dataset.state === state) return;
         marker.dataset.state = state;
-        if (state === "dot") { marker.textContent = "•"; marker.style.color = "#6b7a8d"; li.style.color = ""; }
+        if (state === "dot") { marker.textContent = "â€¢"; marker.style.color = "#6b7a8d"; li.style.color = ""; }
         else if (state === "empty") { marker.textContent = ""; marker.style.color = ""; li.style.color = ""; }
-        else if (state === "ok") { marker.textContent = "✔"; marker.style.color = "#1b8f3a"; li.style.color = "#1b8f3a"; }  /* satisfied -> green text */
-        else { marker.textContent = "○"; marker.style.color = "#6b7a8d"; li.style.color = ""; }  /* not satisfied -> hollow dot */
+        else if (state === "ok") { marker.textContent = "âœ”"; marker.style.color = "#1b8f3a"; li.style.color = "#1b8f3a"; }  /* satisfied -> green text */
+        else { marker.textContent = "â—‹"; marker.style.color = "#6b7a8d"; li.style.color = ""; }  /* not satisfied -> hollow dot */
       });
     }
 
-    /* Password strength score (0-100) — graduated by composition, not just
+    /* Password strength score (0-100) â€” graduated by composition, not just
        "all rules met": rewards length tiers, mixed case, multiple digits and
        multiple special characters. */
     function calcStrength(v) {
@@ -2354,7 +2135,7 @@ function tr(key) {
       confirmPasswordInput.addEventListener("input", clearCpError);
     }
 
-    /* Update button text to NEXT → */
+    /* Update button text to NEXT â†’ */
     var saveBtn = document.getElementById("validate") || document.getElementById("submit");
     setBtnArrowLabel(saveBtn, tr("next.button"));
 
@@ -2458,7 +2239,7 @@ function tr(key) {
         }
 
         /* Re-evaluate the VISIBLE requirement list and block only if a shown,
-           client-checkable rule is unmet — keeps the gate in sync with the
+           client-checkable rule is unmet â€” keeps the gate in sync with the
            green/red ticks the user actually sees (PII rules show a dot and are
            validated server-side, so they never block here). */
         updateMoReqList(val);
@@ -2482,7 +2263,7 @@ function tr(key) {
       });
     }
 
-    /* ── PASSWORD MATCH CHECK (blur on confirm) ── */
+    /* â”€â”€ PASSWORD MATCH CHECK (blur on confirm) â”€â”€ */
     function bindPasswordMatchCheck() {
       if (!newPasswordInput || !confirmPasswordInput) return;
       if (confirmPasswordInput.dataset.moMatchListener) return;
@@ -2568,21 +2349,12 @@ function tr(key) {
     var isPageHasError = errorOnPage();
     if (isPageHasError && !document.getElementById("mo-cp-server-error") && !(fpForm && fpForm.dataset.moServerErrDismissed)) {
       console.log('IN ERROR SECTION ');
-      /* Show our own translated message only when this page's URL explicitly
-         asked for a locale. The server can return several different
-         policy-violation strings (name/email in password, reused password,
-         etc.) — we validate those rules ourselves client-side, so one
-         generic translated message covers all of them here. Otherwise,
-         trust the backend's own (possibly session-localized) text, still
-         collapsing its verbose policy string down to a short message. */
-      var message;
-      if (hasExplicitLocaleParam()) {
-        message = tr("changepw.error.policy");
-      } else {
-        message = $('#error-alert-message .errorMessage li span').text().trim();
-        if (/should be present|should not be present/i.test(message)) {
-          message = "Password requirement not matched";
-        }
+      var message = $('#error-alert-message .errorMessage li span').text().trim();
+      /* The server returns the full password policy string when the password
+         fails the policy (e.g. contains the user's name/email). We validate
+         all those rules manually, so collapse this one case into a short msg. */
+      if (/should be present|should not be present/i.test(message)) {
+        message = "Password requirement not matched";
       }
       var $cpWrap = $('.mo-pw-wrap');
       var cpErrHtml = '<p id="mo-cp-server-error" class="text-danger pb-2" style="font-size:12px;margin-top:-10px;margin-bottom:8px;">' + message + '</p>';
@@ -2609,12 +2381,12 @@ function tr(key) {
 
   }
 
-  /* ── MAIN RUN ── */
+  /* â”€â”€ MAIN RUN â”€â”€ */
   function run() {
     if (checkIsLogout()) { applyLogoutPage(); return; }
 
     /* getLocale() below already captures ?request_locale from the URL on the
-       openidsso page too, and that page renders the normal login form — so we
+       openidsso page too, and that page renders the normal login form â€” so we
        let it fall through to the login styling instead of short-circuiting. */
     getLocale();
 
@@ -2634,7 +2406,7 @@ function tr(key) {
     injectFontAndCss();
 
     /* The redirecttoidplogin page also matches checkIsLogin() (it has
-       #idploginform), so exclude it here — it has its own handler below.
+       #idploginform), so exclude it here â€” it has its own handler below.
        Otherwise both flows run and each appends its own error message. */
     if (isLogin && !isRedirectToIdpLogin) {
       applyEmailStep();
@@ -2642,7 +2414,7 @@ function tr(key) {
       handleLoginErrors();
       forceHide();
 
-      /* Hide original forgot/create link wrappers — skip our custom #mo-forgot */
+      /* Hide original forgot/create link wrappers â€” skip our custom #mo-forgot */
       document.querySelectorAll("a[href*='forgotpassword'],a[href*='resetpassword'],a[href*='businessfreetrial']").forEach(function (a) {
         if (a.id === "mo-forgot") return;
         var c = a.closest(".col-auto");
@@ -2662,7 +2434,7 @@ function tr(key) {
     if (isPasswordSentMessage) { applyPasswordSentMessage(); }
   }
 
-  /* ── TIMING ── */
+  /* â”€â”€ TIMING â”€â”€ */
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run);
   } else { run(); }
@@ -2670,7 +2442,7 @@ function tr(key) {
   setTimeout(run, 800);
   setTimeout(run, 1500);
 
-  /* ── OBSERVER ── */
+  /* â”€â”€ OBSERVER â”€â”€ */
   var observer = new MutationObserver(function () {
     var isLogin = checkIsLogin();
     var isRedirectToIdpLogin = checkIsRedirectToIdpLogin();
