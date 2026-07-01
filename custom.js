@@ -231,7 +231,6 @@
     var message = span ? span.textContent.trim() : "";
     if (!message) return false;
 
-    console.log("THIS PAGE HAS ERROR");
     return true;
   }
 
@@ -437,8 +436,6 @@ function hasExplicitLocaleParam() {
 
 function getLocale() {
     var urlLang = getUrlParam("request_locale");
-    console.log("urlLang:", urlLang);
-
     if (urlLang) {
         urlLang = urlLang.toLowerCase();
         localStorage.setItem("mo_locale", urlLang);
@@ -2622,7 +2619,7 @@ function tr(key) {
     if (!isLogin && !isRedirectToIdpLogin && !isForgot && !isOtp && !isChangePass && !isEnduserDashboard && !isPasswordSentMessage) return;
 
     var isPageHasError = errorOnPage();
-    if (isPageHasError) { console.log("this page has errir"); }
+    if (isPageHasError) { console.log("this page has error"); }
 
     injectFontAndCss();
 
