@@ -800,13 +800,14 @@
     }
   };
 
-  function tr(key) {
-    var locale = localStorage.getItem("mo_locale") || "en";
+function tr(key) {
+    var locale = getLocale();
     var dict = TRANSLATIONS[locale] || TRANSLATIONS.en;
-    if (dict && dict[key] != null) return dict[key];
-    if (TRANSLATIONS.en && TRANSLATIONS.en[key] != null) return TRANSLATIONS.en[key];
+
+    if (dict[key] != null) return dict[key];
+    if (TRANSLATIONS.en[key] != null) return TRANSLATIONS.en[key];
     return key;
-  }
+}
 
   /* ── STEP 1: Email page UI ── */
   function applyEmailStep() {
